@@ -28,10 +28,9 @@ defmodule JobHuntingEx.MixProject do
       {:anubis_mcp, "~> 0.17.0"},
       {:jason, "~> 1.4"},
       {:req, "~> 0.5.0"},
-      {:floki, "~> 0.38.0"},
-      {:ecto_sql, "~> 3.0"},
-      {:exqlite, "~> 0.34"},
-      {:ecto_sqlite3, "~> 0.17"}
+{:floki, "~> 0.38.0"},
+{:ecto_sql, "~> 3.0"},
+{:postgrex, ">= 0.0.0"}
     ]
   end
 end
