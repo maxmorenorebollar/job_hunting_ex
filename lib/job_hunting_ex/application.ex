@@ -15,7 +15,8 @@ defmodule JobHuntingEx.Application do
       # Starts a worker by calling: JobHuntingEx.Worker.start_link(arg)
       # {JobHuntingEx.Worker, arg}
       Plug.Cowboy.child_spec(scheme: :http, plug: JobHuntingEx.Router, options: [port: 4001]),
-      {JobHuntingEx.McpClient, transport: {:streamable_http, base_url: "https://mcp.dice.com/"}}
+      {JobHuntingEx.McpClient, transport: {:streamable_http, base_url: "https://mcp.dice.com/"}},
+      Jobs.Repo
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
