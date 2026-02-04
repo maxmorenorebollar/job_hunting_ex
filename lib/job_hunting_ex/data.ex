@@ -20,7 +20,12 @@ defmodule JobHuntingEx.Data do
   end
 
   def get_embeddings(documents) do
-    body = %{"model" => "qwen/qwen3-embedding-8b", "input" => elem(documents, 1)}
+    IO.puts("starting getting embeddings")
+
+    body = %{
+      "model" => "qwen/qwen3-embedding-8b",
+      "input" => Enum.map(documents, fn {_url, html} -> html end)
+    }
 
     response =
       Req.post!(
@@ -33,15 +38,28 @@ defmodule JobHuntingEx.Data do
         json: body
       )
 
-    Enum.map(response.body["data"], & &1["embedding"])
-    |> Enum.zip(elem(documents, 0))
+    Enum.zip(documents, Enum.map(response.body["data"], & &1["embedding"]))
+  end
+
+  def write_all(embeddings) do
   end
 
   def process(params) do
     get_urls(params)
-    |> Task.async_stream(fn url -> get_html(url) end, max_concurrency: 2, ordered: false)
+    |> Task.async_stream(
+      fn url ->
+        html = get_html(url)
+        {url, html}
+      end,
+      max_concurrency: 2,
+      ordered: false
+    )
+    |> Stream.map(fn {:ok, pair} -> pair end)
     |> Stream.chunk_every(25)
-    |> Task.async_stream()
-    |> IO.inspect()
+    |> Task.async_stream(fn batch -> get_embeddings(batch) end,
+      max_concurrency: 2,
+      ordered: false
+    )
+    |> Enum.take(1)
   end
 end
