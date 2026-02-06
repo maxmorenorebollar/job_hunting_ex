@@ -1,4 +1,6 @@
 defmodule JobHuntingEx.Data do
+  import JobHuntingEx.Jobs
+
   def polite_sleep do
     :timer.sleep(Enum.random(1000..3000))
   end
@@ -39,6 +41,9 @@ defmodule JobHuntingEx.Data do
       )
 
     Enum.zip(documents, Enum.map(response.body["data"], & &1["embedding"]))
+    |> Enum.map(fn {{url, html}, embedding} ->
+      %{"url" => url, "description" => html, "embeddings" => embedding}
+    end)
   end
 
   def write_all(embeddings) do
@@ -60,6 +65,8 @@ defmodule JobHuntingEx.Data do
       max_concurrency: 2,
       ordered: false
     )
-    |> Enum.take(1)
+    |> Enum.map(fn {:ok, result} -> result end)
+    |> List.flatten()
+    |> Enum.each(&create_listing(&1))
   end
 end
