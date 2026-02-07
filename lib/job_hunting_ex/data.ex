@@ -2,7 +2,7 @@ defmodule JobHuntingEx.Data do
   import JobHuntingEx.Jobs
 
   def polite_sleep do
-    :timer.sleep(Enum.random(1000..3000))
+    :timer.sleep(Enum.random([1_000, 2_000, 3_000]))
   end
 
   def get_urls(params) do
@@ -53,11 +53,13 @@ defmodule JobHuntingEx.Data do
     get_urls(params)
     |> Task.async_stream(
       fn url ->
+        polite_sleep()
         html = get_html(url)
         {url, html}
       end,
       max_concurrency: 2,
-      ordered: false
+      ordered: false,
+      timeout: 10_000
     )
     |> Stream.map(fn {:ok, pair} -> pair end)
     |> Stream.chunk_every(25)
