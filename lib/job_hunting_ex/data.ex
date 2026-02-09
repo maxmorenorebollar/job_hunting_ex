@@ -1,4 +1,5 @@
 defmodule JobHuntingEx.Data do
+  require Logger
   import JobHuntingEx.Jobs
 
   def polite_sleep do
@@ -9,7 +10,6 @@ defmodule JobHuntingEx.Data do
     with {:ok, %{result: payload}} <- JobHuntingEx.McpClient.call_tool("search_jobs", params),
          %{"content" => [%{"text" => text} | _]} <- payload,
          {:ok, %{"data" => jobs}} <- Jason.decode(text) do
-      IO.puts("extrating urls")
       Enum.map(jobs, fn job -> job["detailsPageUrl"] end)
     end
   end
@@ -17,13 +17,11 @@ defmodule JobHuntingEx.Data do
   def get_html(url) do
     html_string = Req.get!(url).body
     {:ok, html} = Floki.parse_document(html_string)
-    IO.puts("Retrieved html for #{url}")
+    Logger.info("Retrieved html for #{url}")
     Floki.find(html, "[class^='job-detail-description']") |> List.first() |> Floki.text()
   end
 
   def get_embeddings(documents) do
-    IO.puts("starting getting embeddings")
-
     body = %{
       "model" => "baai/bge-m3",
       "input" => Enum.map(documents, fn {_url, html} -> html end)
@@ -49,6 +47,63 @@ defmodule JobHuntingEx.Data do
     end)
   end
 
+  def fetch_years_of_exerience(html) do
+    body = %{
+      "model" => "google/gemma-3-12b-it",
+      "messages" => [
+        %{
+          "role" => "system",
+          "content" =>
+            "You are given a job listing. Determine what the minimum number of years of experience that would qualify someone for this role. Return the answer or -1 if not found"
+        },
+        %{
+          "role" => "user",
+          "content" => html
+        }
+      ],
+      "response_format" => %{
+        "type" => "json_schema",
+        "json_schema" => %{
+          "name" => "listing",
+          "strict" => "true",
+          "schema" => %{
+            "type" => "object",
+            "properties" => %{
+              "minimum_years_of_experience" => %{
+                "type" => "number",
+                "description" => "The minimum years of experience required for the job"
+              }
+            }
+          }
+        }
+      }
+    }
+
+    response =
+      Req.post(
+        url: "https://openrouter.ai/api/v1/chat/completions",
+        headers: [
+          authorization: "Bearer #{Application.get_env(:job_hunting_ex, :openrouter_api_key)}",
+          content_type: "application/json"
+        ],
+        json: body
+      )
+
+    case response do
+      {:ok, res} ->
+        res.body
+        |> Map.get("choices")
+        |> List.first()
+        |> Map.get("message")
+        |> Map.get("content")
+        |> Jason.decode!()
+        |> Map.get("minimum_years_of_experience")
+
+      error ->
+        -1
+    end
+  end
+
   def extract_years_of_experience(html) do
     patterns = [
       ~r/(\d+)\+?\s*years?\s+of\s+experience/i,
@@ -56,7 +111,8 @@ defmodule JobHuntingEx.Data do
       ~r/(\d+)\+?\s*years?\s+professional\s+experience/i,
       ~r/(\d+)\+?\s*years?\s+relevant\s+experience/i,
       ~r/minimum\s+of\s+(\d+)\s*years?/i,
-      ~r/at\s+least\s+(\d+)\s*years?/i
+      ~r/at\s+least\s+(\d+)\s*years?/i,
+      ~r/(\d+)\+?\s*years?\b/i
     ]
 
     years =
@@ -67,7 +123,7 @@ defmodule JobHuntingEx.Data do
 
     case years do
       [] -> nil
-      list -> Enum.min(list)
+      list -> Enum.max(list)
     end
   end
 
@@ -86,14 +142,19 @@ defmodule JobHuntingEx.Data do
     |> Stream.map(fn {:ok, pair} -> pair end)
     |> Stream.chunk_every(25)
     |> Task.async_stream(fn batch -> get_embeddings(batch) end,
-      max_concurrency: 2,
+      max_concurrency: 3,
       ordered: false
     )
     |> Enum.map(fn {:ok, result} -> result end)
     |> List.flatten()
-    |> then(fn {url, html, embeddings} ->
-      min_yoe = extract_years_of_experience(html)
-      {url, html, embeddings, min_yoe}
+    |> Enum.map(fn listing ->
+      min_yoe =
+        case extract_years_of_experience(listing["description"]) do
+          nil -> fetch_years_of_exerience(listing["description"])
+          val -> val
+        end
+
+      Map.put(listing, "years_of_experience", min_yoe)
     end)
     |> Enum.each(&create_listing(&1))
   end
