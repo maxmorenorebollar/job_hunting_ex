@@ -49,7 +49,7 @@ defmodule JobHuntingEx.Data do
 
   def fetch_years_of_exerience(html) do
     body = %{
-      "model" => "google/gemma-3-12b-it",
+      "model" => "google/gemma-3-27b-it",
       "messages" => [
         %{
           "role" => "system",
@@ -143,16 +143,13 @@ defmodule JobHuntingEx.Data do
     |> Stream.chunk_every(25)
     |> Task.async_stream(fn batch -> get_embeddings(batch) end,
       max_concurrency: 3,
-      ordered: false
+      ordered: false,
+      timeout: 60_000
     )
     |> Enum.map(fn {:ok, result} -> result end)
     |> List.flatten()
     |> Enum.map(fn listing ->
-      min_yoe =
-        case extract_years_of_experience(listing["description"]) do
-          nil -> fetch_years_of_exerience(listing["description"])
-          val -> val
-        end
+      min_yoe = fetch_years_of_exerience(listing["description"])
 
       Map.put(listing, "years_of_experience", min_yoe)
     end)
