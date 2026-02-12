@@ -54,7 +54,7 @@ defmodule JobHuntingEx.Data do
         %{
           "role" => "system",
           "content" =>
-            "You are given a job listing. Determine what the minimum number of years of experience that would qualify someone for this role. Return the answer or -1 if not found"
+            "You are given a job listing. Determine what the minimum number of years of experience that would qualify someone for this role. Often you will see jobs requiring either a masters and some number of years of experience or a bachelors with more required years of experience. Take the years of expererience as if I didn't have a masters.Return the answer or -1 if not found"
         },
         %{
           "role" => "user",
