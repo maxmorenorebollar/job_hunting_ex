@@ -2,27 +2,33 @@ defmodule JobHuntingEx.Data do
   require Logger
   import JobHuntingEx.Jobs
 
-  def polite_sleep do
+  alias Jobs.Repo.Listing
+
+  defp polite_sleep do
     :timer.sleep(Enum.random([1_000, 2_000, 3_000]))
   end
 
-  def get_urls(params) do
+  @spec fetch_urls(String.t()) :: list(String.t())
+  defp fetch_urls(params) do
     with {:ok, %{result: payload}} <- JobHuntingEx.McpClient.call_tool("search_jobs", params),
          %{"content" => [%{"text" => text} | _]} <- payload,
          {:ok, %{"data" => jobs}} <- Jason.decode(text) do
-      Enum.map(jobs, fn job -> job["detailsPageUrl"] end)
+      {:ok, Enum.map(jobs, fn job -> job["detailsPageUrl"] end)}
+    else
+      {:error, err} -> {:error, IO.inspect(err)}
     end
   end
 
   @spec get_html(String.t()) :: String.t()
-  def get_html(url) do
-    html_string = Req.get!(url).body
-    {:ok, html} = Floki.parse_document(html_string)
-    Logger.info("Retrieved html for #{url}")
-    Floki.find(html, "[class^='job-detail-description']") |> List.first() |> Floki.text()
+  defp get_html(url) do
+    with {:ok, response} <- Req.get(url),
+         {:ok, html} <- Floki.parse_document(response.body) do
+      Logger.info("Retrieved html for #{url}")
+      Floki.find(html, "[class^='job-detail-description']") |> List.first() |> Floki.text()
+    end
   end
 
-  def get_embeddings(documents) do
+  defp get_embeddings(documents) do
     body = %{
       "model" => "baai/bge-m3",
       "input" => Enum.map(documents, fn {_url, html} -> html end)
@@ -129,31 +135,36 @@ defmodule JobHuntingEx.Data do
   end
 
   def process(params) do
-    get_urls(params)
-    |> Task.async_stream(
-      fn url ->
-        polite_sleep()
-        html = get_html(url)
-        {url, html}
-      end,
-      max_concurrency: 2,
-      ordered: false,
-      timeout: 10_000
-    )
-    |> Stream.map(fn {:ok, pair} -> pair end)
-    |> Stream.chunk_every(25)
-    |> Task.async_stream(fn batch -> get_embeddings(batch) end,
-      max_concurrency: 3,
-      ordered: false,
-      timeout: 60_000
-    )
-    |> Enum.map(fn {:ok, result} -> result end)
-    |> List.flatten()
-    |> Enum.map(fn listing ->
-      min_yoe = fetch_years_of_exerience(listing["description"])
+    with {:ok, urls} <- fetch_urls(params) do
+      urls
+      |> Task.async_stream(
+        fn url ->
+          polite_sleep()
+          html = get_html(url)
+          {url, html}
+        end,
+        max_concurrency: 2,
+        ordered: false,
+        timeout: 10_000
+      )
+      |> Stream.map(fn {:ok, pair} -> pair end)
+      |> Stream.chunk_every(25)
+      |> Task.async_stream(fn batch -> get_embeddings(batch) end,
+        max_concurrency: 3,
+        ordered: false,
+        timeout: 60_000
+      )
+      |> Enum.map(fn {:ok, result} -> result end)
+      |> List.flatten()
+      |> Enum.map(fn listing ->
+        min_yoe = fetch_years_of_exerience(listing["description"])
 
-      Map.put(listing, "years_of_experience", min_yoe)
-    end)
-    |> Enum.each(&create_listing(&1))
+        Map.put(listing, "years_of_experience", min_yoe)
+      end)
+      |> Enum.each(&create_listing(&1))
+    else
+      {:error, err} ->
+        {:error, err}
+    end
   end
 end
