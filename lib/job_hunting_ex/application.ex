@@ -5,23 +5,30 @@ defmodule JobHuntingEx.Application do
 
   use Application
 
-  require Logger
-
   @impl true
   def start(_type, _args) do
-    Logger.info("Server runnging at http://localhost:4001")
-
     children = [
-      # Starts a worker by calling: JobHuntingEx.Worker.start_link(arg)
-      # {JobHuntingEx.Worker, arg}
-      Plug.Cowboy.child_spec(scheme: :http, plug: JobHuntingEx.Router, options: [port: 4001]),
-      {JobHuntingEx.McpClient, transport: {:streamable_http, base_url: "https://mcp.dice.com/"}},
-      Jobs.Repo
+      JobHuntingExWeb.Telemetry,
+      JobHuntingEx.Repo,
+      {DNSCluster, query: Application.get_env(:job_hunting_ex, :dns_cluster_query) || :ignore},
+      {Phoenix.PubSub, name: JobHuntingEx.PubSub},
+      # Start a worker by calling: JobHuntingEx.Worker.start_link(arg)
+      # {JobHuntingEx.Worker, arg},
+      # Start to serve requests, typically the last entry
+      JobHuntingExWeb.Endpoint
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: JobHuntingEx.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Tell Phoenix to update the endpoint configuration
+  # whenever the application is updated.
+  @impl true
+  def config_change(changed, _new, removed) do
+    JobHuntingExWeb.Endpoint.config_change(changed, removed)
+    :ok
   end
 end
