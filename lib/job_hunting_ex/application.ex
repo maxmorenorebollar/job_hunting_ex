@@ -15,7 +15,8 @@ defmodule JobHuntingEx.Application do
       # Start a worker by calling: JobHuntingEx.Worker.start_link(arg)
       # {JobHuntingEx.Worker, arg},
       # Start to serve requests, typically the last entry
-      JobHuntingExWeb.Endpoint
+      JobHuntingExWeb.Endpoint,
+      {JobHuntingEx.McpClient, transport: {:streamable_http, base_url: "https://mcp.dice.com/"}}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
