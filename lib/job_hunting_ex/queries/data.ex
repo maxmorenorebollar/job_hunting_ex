@@ -59,7 +59,8 @@ defmodule JobHuntingEx.Queries.Data do
       Req.post!(
         url: "https://openrouter.ai/api/v1/embeddings",
         headers: [
-          authorization: "Bearer ",
+          authorization:
+            "Bearer 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",
           content_type: "application/json"
         ],
         json: body
@@ -107,7 +108,7 @@ defmodule JobHuntingEx.Queries.Data do
     response =
       Req.post(
         url: "https://api.groq.com/openai/v1/chat/completions",
-        auth: {:bearer, ""},
+        auth: {:bearer, "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"},
         json: body
       )
 
@@ -126,6 +127,7 @@ defmodule JobHuntingEx.Queries.Data do
     end
   end
 
+  # Changes to working with a struct and constructing a list of listings struct
   def process(params) do
     with {:ok, urls} <- fetch_urls(params) do
       urls
@@ -165,11 +167,17 @@ defmodule JobHuntingEx.Queries.Data do
         :timer.sleep(500)
         Map.put(listing, "years_of_experience", min_yoe)
       end)
-      |> Enum.each(&Listings.create(&1))
+      |> Enum.map(&Listings.create(&1))
+      |> Enum.flat_map(fn
+        {:ok, struct} -> [struct]
+        {:error, struct} -> [struct]
+      end)
     else
       {:error, err} ->
         Logger.error("Could not query Dice MCP", "reason: #{err}")
         {:error, "Failled on start"}
     end
+
+    {:ok, "done"}
   end
 end

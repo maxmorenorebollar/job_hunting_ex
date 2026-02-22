@@ -1,7 +1,9 @@
-<p>Query</p>
-<.form for={@form} phx-submit="search" phx-change="validate">
-  <.input field={@form[:keyword]} type="text" label="keyword" />
-  <.input field={@form[:location]} type="text" label="location" />
-  <.input field={@form[:radius]} type="text" label="radius" />
-  <.button>Search</.button>
-</.form>
+<Layouts.app flash={@flash}>
+  <p>Query</p>
+  <.form for={@form} phx-submit="search" phx-change="validate">
+    <.input field={@form[:keyword]} type="text" label="keyword" />
+    <.input field={@form[:location]} type="text" label="location" />
+    <.input field={@form[:radius]} type="text" label="radius" />
+    <.button>Search</.button>
+  </.form>
+</Layouts.app>
