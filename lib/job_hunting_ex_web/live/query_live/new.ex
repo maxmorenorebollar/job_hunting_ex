@@ -44,23 +44,23 @@ defmodule JobHuntingExWeb.QueryLive.New do
         <div class="space-y-4">
           <%= for listing <- listings do %>
             <div class="card bg-base-200 rounded-box shadow-sm">
-              <div class="card-body flex flex-row items-stretch p-4 gap-4">
-                <div class="flex-1 flex flex-col justify-center min-w-0">
+              <div class="card-body flex flex-col gap-4 p-4">
+                <div class="flex flex-col gap-2">
                   <a
                     href={listing.url}
                     target="_blank"
-                    class="font-bold text-primary hover:underline truncate block mb-2"
+                    class="font-bold text-primary hover:underline truncate"
                   >
                     {listing.url}
                   </a>
-                  <p class="text-sm text-base-content/70">{listing.summary}</p>
+                  <p class="text-xs text-base-content/70 leading-relaxed">{listing.summary}</p>
                 </div>
 
-                <div class="bg-base-300 rounded-lg p-3 flex flex-col justify-center min-w-[120px]">
-                  <div class="font-semibold text-sm mb-1">
+                <div class="bg-base-300 rounded-lg p-2 text-xs break-words">
+                  <div class="font-semibold mb-1">
                     {listing.years_of_experience}+ years
                   </div>
-                  <div class="text-xs text-base-content/60">{listing.skills}</div>
+                  <div class="text-base-content/60">{Enum.join(listing.skills, ", ")}</div>
                 </div>
               </div>
             </div>
