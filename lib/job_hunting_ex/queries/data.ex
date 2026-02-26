@@ -1,8 +1,19 @@
 defmodule JobHuntingEx.Queries.Data do
   require Logger
   alias JobHuntingEx.Jobs.Listings
+  alias JobHuntingEx.Queries.Data
 
-  defstruct [:url, :html, :description, :classification, :embeddings, :changeset, :error]
+  defstruct [
+    :url,
+    :html,
+    :job_title,
+    :description,
+    :skills,
+    :years_of_experience,
+    :summary,
+    :embeddings,
+    :error
+  ]
 
   defp polite_sleep do
     :timer.sleep(Enum.random([1_000, 2_000, 3_000]))
@@ -25,7 +36,7 @@ defmodule JobHuntingEx.Queries.Data do
          {:ok, %{"data" => jobs}} <- Jason.decode(text) do
       {:ok, Enum.map(jobs, fn job -> job["detailsPageUrl"] end)}
     else
-      {:error, err} -> {:error, IO.inspect(err)}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -46,8 +57,8 @@ defmodule JobHuntingEx.Queries.Data do
     end
   end
 
-  @spec fetch_html(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp fetch_html(url) do
+  @spec fetch_description(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp fetch_description(url) do
     with {:ok, response} <- Req.get(url),
          {:ok, description} <- extract_description(response.body) do
       case description do
@@ -62,11 +73,11 @@ defmodule JobHuntingEx.Queries.Data do
   def get_embeddings(documents) do
     body = %{
       "model" => "baai/bge-m3",
-      "input" => Enum.map(documents, fn {_url, html} -> html end)
+      "input" => Enum.map(documents, fn document -> document.description end)
     }
 
     response =
-      Req.post!(
+      Req.post(
         url: "https://openrouter.ai/api/v1/embeddings",
         headers: [
           authorization: "Bearer ",
@@ -75,24 +86,28 @@ defmodule JobHuntingEx.Queries.Data do
         json: body
       )
 
-    Enum.zip(documents, Enum.map(response.body["data"], & &1["embedding"]))
-    |> Enum.map(fn {{url, html}, embedding} ->
-      %{
-        "url" => url,
-        "description" => html,
-        "embeddings" => embedding
-      }
-    end)
+    # response body will have map %{"data" => [list of embeddings]} as response
+    case response do
+      {:ok, res} ->
+        embeddings =
+          res.body["data"]
+          |> Enum.map(& &1["embedding"])
+
+        {:ok, embeddings}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
-  def fetch_job_data(html) do
+  def fetch_job_data(description) do
     body = %{
       "model" => "openai/gpt-oss-20b",
       "messages" => [
         %{
           "role" => "user",
           "content" =>
-            "You are given a job listing. Determine what the minimum number of years of experience that would qualify someone for this role. Often you will see jobs requiring either a masters and some number of years of experience or a bachelors with more required years of experience. Take the years of expererience as if the applicant doesn't have a masters. You are allowed to make an educated guess on the years of experience based on the title. If it says senior then you can infer the required years of experience is 5 etc. Return the answer or -1 if not found. As well, determine what are the top 5 most needed skills for this role are and limit them to 1 or two words. If there are less than 5 skills needed that's okay. Also provide a one sentence summary of the description. Pay close attention to what you would actually be working on in the job like particular teams. Here is the listing: #{html}"
+            "You are given a job listing. Determine what the minimum number of years of experience that would qualify someone for this role. Often you will see jobs requiring either a masters and some number of years of experience or a bachelors with more required years of experience. Take the years of expererience as if the applicant doesn't have a masters. You are allowed to make an educated guess on the years of experience based on the title. If it says senior then you can infer the required years of experience is 5 etc. Return the answer or -1 if not found. As well, determine what are the top 5 most needed skills for this role are and limit them to 1 or two words. If there are less than 5 skills needed that's okay. Also provide a one sentence summary of the description. Pay close attention to what you would actually be working on in the job like particular teams. Here is the listing: #{description}"
         }
       ],
       "response_format" => %{
@@ -103,7 +118,7 @@ defmodule JobHuntingEx.Queries.Data do
           "schema" => %{
             "type" => "object",
             "properties" => %{
-              "minimum_years_of_experience" => %{
+              "min_years_of_experience" => %{
                 "type" => "number"
               },
               "skills" => %{
@@ -114,7 +129,7 @@ defmodule JobHuntingEx.Queries.Data do
                 "type" => "string"
               }
             },
-            "required" => ["minimum_years_of_experience", "skills", "summary"],
+            "required" => ["min_years_of_experience", "skills", "summary"],
             "additionalProperties" => false
           }
         }
@@ -132,42 +147,53 @@ defmodule JobHuntingEx.Queries.Data do
       {:ok, res} ->
         IO.inspect(res.body)
 
-        res.body
-        |> Map.get("choices")
-        |> List.first()
-        |> Map.get("message")
-        |> Map.get("content")
-        |> Jason.decode!()
-        |> case do
-          %{
-            minimum_years_of_experience: years,
-            skills: skills,
-            summary: summary
-          } ->
-            %{
-              minimum_years_of_experience: years,
-              skills: skills,
-              summary: summary
-            }
+        json_content =
+          res.body
+          |> Map.get("choices")
+          |> List.first()
+          |> Map.get("message")
+          |> Map.get("content")
+          |> Jason.decode()
 
-          _other ->
-            %{
-              minimum_years_of_experience: -1,
-              skills: "",
-              summary: ""
-            }
+        case json_content do
+          {:ok, %{"min_years_of_experience" => -1}} ->
+            {:error, "Minimum years of experience could not be extracted"}
+
+          {:ok,
+           %{
+             "min_years_of_experience" => years,
+             "skills" => skills,
+             "summary" => summary
+           }} ->
+            {:ok,
+             %{
+               "min_years_of_experience" => years,
+               "skills" => skills,
+               "summary" => summary
+             }}
         end
 
-      _error ->
-        %{
-          "minimum_years_of_experience" => -1,
-          "skills" => [],
-          "summary" => ""
-        }
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  # Changes to working with a struct and constructing a list of listings struct
+  defp handle_result({:ok, %{error: nil} = data}) do
+    [data]
+  end
+
+  defp handle_result({:ok, list}) when is_list(list) do
+    Enum.filter(list, fn data -> data.error == nil end)
+  end
+
+  defp handle_result({:ok, %{error: _reason} = _data}) do
+    []
+  end
+
+  defp handle_result({:exit, _reason}) do
+    []
+  end
+
   def process(params) do
     _myoe = params["minimum_years_of_experience"]
 
@@ -177,55 +203,72 @@ defmodule JobHuntingEx.Queries.Data do
     result =
       with {:ok, urls} <- fetch_urls(params_modified) do
         urls
+        |> Enum.map(fn url -> %Data{url: url} end)
         |> Task.async_stream(
-          fn url ->
+          fn data ->
             polite_sleep()
-            {url, fetch_html(url)}
+
+            case fetch_description(data.url) do
+              {:ok, description} ->
+                %{data | description: description}
+
+              {:error, reason} ->
+                %{data | error: reason}
+            end
           end,
           max_concurrency: 2,
           ordered: false,
           timeout: 10_000,
           on_timeout: :kill_task
         )
-        |> Stream.flat_map(fn
-          {:ok, {url, {:ok, html}}} ->
-            [{url, html}]
+        |> Stream.flat_map(&handle_result(&1))
+        |> Task.async_stream(
+          fn data ->
+            case fetch_job_data(data.description) do
+              {:ok, result} ->
+                %{
+                  data
+                  | years_of_experience: result["min_years_of_experience"],
+                    skills: result["skills"],
+                    summary: result["summary"]
+                }
 
-          {:ok, {_url, {:error, _}}} ->
-            []
-
-          {:exit, _} ->
-            []
-        end)
+              {:error, reason} ->
+                %{data | error: reason}
+            end
+          end,
+          max_concurrency: 20,
+          ordered: false,
+          timeout: 10_000,
+          on_timeout: :kill_task
+        )
+        |> Stream.flat_map(&handle_result(&1))
         |> Stream.chunk_every(25)
         |> Task.async_stream(
           fn batch ->
-            get_embeddings(batch)
+            case get_embeddings(batch) do
+              {:ok, embeddings} ->
+                Enum.zip(batch, embeddings)
+                |> Enum.map(fn
+                  {data, emb} -> %{data | embeddings: emb}
+                end)
+
+              {:error, reason} ->
+                Enum.map(batch, fn data -> %{data | error: "Embedding Error: #{reason}"} end)
+            end
           end,
           max_concurrency: 2,
           ordered: false,
           timeout: 60_000
         )
-        |> Enum.map(fn {:ok, result} -> result end)
-        |> List.flatten()
-        |> Enum.map(fn listing ->
-          job_data = fetch_job_data(listing["description"])
-          IO.inspect(job_data)
-          :timer.sleep(500)
-
-          listing
-          |> Map.put("years_of_experience", job_data.minimum_years_of_experience)
-          |> Map.put("skills", job_data.skills)
-          |> Map.put("summary", job_data.summary)
-        end)
-        |> Enum.map(&Listings.create(&1))
+        |> Stream.flat_map(&handle_result(&1))
+        |> Enum.map(fn data -> Listings.create(Map.from_struct(data)) end)
+        |> IO.inspect()
         |> Enum.flat_map(fn
           {:ok, struct} -> [struct]
           # throw away all errors for now
           {:error, _struct} -> []
         end)
-
-        # just going to return everything for now
       else
         {:error, err} ->
           Logger.error("Could not query Dice MCP", "reason: #{err}")

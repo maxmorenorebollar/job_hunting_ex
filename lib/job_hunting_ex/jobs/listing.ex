@@ -16,7 +16,6 @@ defmodule JobHuntingEx.Jobs.Listing do
     timestamps(type: :utc_datetime)
   end
 
-  @doc false
   def changeset(listing, attrs) do
     listing
     |> cast(attrs, [
