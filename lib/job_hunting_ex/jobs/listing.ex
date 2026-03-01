@@ -16,9 +16,9 @@ defmodule JobHuntingEx.Jobs.Listing do
     timestamps(type: :utc_datetime)
   end
 
-  def changeset(listing, attrs) do
+  def changeset(listing, params) do
     listing
-    |> cast(attrs, [
+    |> cast(params, [
       :url,
       :title,
       :description,

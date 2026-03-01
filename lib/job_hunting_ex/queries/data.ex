@@ -2,6 +2,11 @@ defmodule JobHuntingEx.Queries.Data do
   require Logger
   alias JobHuntingEx.Jobs.Listings
   alias JobHuntingEx.Queries.Data
+  alias JobHuntingEx.Resumes.Resumes
+  alias JobHuntingEx.Jobs.Listing
+
+  import Ecto.Query
+  import Pgvector.Ecto.Query
 
   defstruct [
     :url,
@@ -20,10 +25,8 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   defp fetch_urls(params) do
-    with {:ok, %{result: payload}} <-
-           JobHuntingEx.McpClient.call_tool("search_jobs", params),
+    with {:ok, %{result: payload}} <- JobHuntingEx.McpClient.call_tool("search_jobs", params),
          %{"content" => [%{"text" => text} | _]} <- payload,
-         # TODO: handle case where jason.decode will fail and return {:error, reason}
          {:ok, %{"data" => jobs}} <- Jason.decode(text) do
       {:ok, Enum.map(jobs, fn job -> job["detailsPageUrl"] end)}
     else
@@ -77,7 +80,7 @@ defmodule JobHuntingEx.Queries.Data do
     end
   end
 
-  def get_embeddings(documents) do
+  def get_embeddings(documents) when is_list(documents) do
     body = %{
       "model" => "baai/bge-m3",
       "input" => Enum.map(documents, fn document -> document.description end)
@@ -99,6 +102,38 @@ defmodule JobHuntingEx.Queries.Data do
         embeddings =
           res.body["data"]
           |> Enum.map(& &1["embedding"])
+
+        {:ok, embeddings}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @spec get_embeddings(String.t()) :: list(float())
+  def get_embeddings(document) when is_binary(document) do
+    body = %{
+      "model" => "baai/bge-m3",
+      "input" => document
+    }
+
+    response =
+      Req.post(
+        url: "https://openrouter.ai/api/v1/embeddings",
+        headers: [
+          authorization: "Bearer #{System.get_env("OPENROUTER_API_KEY")}",
+          content_type: "application/json"
+        ],
+        json: body
+      )
+
+    # response body will have map %{"data" => [list of embeddings]} as response
+    case response do
+      {:ok, res} ->
+        embeddings =
+          res.body["data"]
+          |> List.first()
+          |> Map.get("embedding")
 
         {:ok, embeddings}
 
@@ -194,12 +229,12 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   defp handle_result({:ok, %{error: reason} = _data}) do
-    Logger.error("Failure: #{reason}")
+    Logger.error("Failure: #{IO.inspect(reason)} )")
     []
   end
 
   defp handle_result({:exit, reason}) do
-    Logger.error("Exit: #{reason}")
+    Logger.error("Exit: #{IO.inspect(reason)}")
     []
   end
 
@@ -214,7 +249,7 @@ defmodule JobHuntingEx.Queries.Data do
     {:error, "Query is malformed"}
   end
 
-  def process(params) do
+  def process(params, resume_text) do
     IO.inspect(params)
 
     static_params = %{
@@ -240,7 +275,7 @@ defmodule JobHuntingEx.Queries.Data do
 
     params_merged = Map.merge(static_params, params_modified)
 
-    result =
+    listing_ids =
       with {:ok, urls} <- fetch_urls(params_merged) do
         urls
         |> Enum.map(fn url -> %Data{url: url} end)
@@ -294,29 +329,45 @@ defmodule JobHuntingEx.Queries.Data do
                 end)
 
               {:error, reason} ->
-                Enum.map(batch, fn data -> %{data | error: "Embedding Error: #{reason}"} end)
+                Enum.map(batch, fn data ->
+                  %{data | error: reason}
+                end)
             end
           end,
           max_concurrency: 2,
           ordered: false,
-          timeout: 60_000
+          timeout: 100_000
         )
         |> Stream.flat_map(&handle_result(&1))
         |> Enum.map(fn data -> Listings.create(Map.from_struct(data)) end)
         |> Enum.flat_map(fn
-          {:ok, struct} -> [struct]
+          {:ok, struct} -> [struct.id]
           # throw away all errors for now
           {:error, _struct} -> []
         end)
-        |> Enum.filter(fn listing ->
-          listing.years_of_experience >= min_yoe && listing.years_of_experience <= max_yoe
-        end)
       else
         {:error, err} ->
-          Logger.error("Could not query Dice MCP", "reason: #{err}")
+          Logger.error("Could not query Dice MCP", "reason: #{IO.inspect(err)}")
           {:error, "Failled on start"}
       end
 
-    result
+    IO.inspect(listing_ids)
+
+    case listing_ids do
+      {:error, reason} ->
+        {:error, reason}
+
+      ids when is_list(ids) ->
+        {:ok, embeddings} = get_embeddings(resume_text)
+        {:ok, resume} = Resumes.create(%{"embeddings" => embeddings})
+
+        JobHuntingEx.Repo.all(
+          from i in Listing,
+            where:
+              i.id in ^ids and i.years_of_experience >= ^min_yoe and
+                i.years_of_experience <= ^max_yoe,
+            order_by: cosine_distance(i.embeddings, ^resume.embeddings)
+        )
+    end
   end
 end

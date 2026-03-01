@@ -3,6 +3,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
   alias JobHuntingEx.Queries.Query
   alias JobHuntingEx.Queries.Data
   alias Phoenix.LiveView.AsyncResult
+  alias JobHuntingEx.Queries.Pdf
 
   def mount(_params, _session, socket) do
     changeset = Query.changeset(%Query{})
@@ -11,6 +12,13 @@ defmodule JobHuntingExWeb.QueryLive.New do
       socket
       |> assign(view: :form)
       |> assign(form: to_form(changeset))
+      |> assign(:uploaded_files, [])
+      |> allow_upload(:resume,
+        accept: ~w(.pdf),
+        max_entries: 1,
+        auto_upload: true,
+        progress: &handle_progress/3
+      )
 
     {:ok, socket}
   end
@@ -47,7 +55,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
                   field={@form[:location]}
                   type="text"
                   label="Location"
-                  placeholder="e.g. San Francisco"
+                  placeholder="e.g. San Francisco, CA"
                 />
                 <.input
                   field={@form[:radius]}
@@ -70,6 +78,25 @@ defmodule JobHuntingExWeb.QueryLive.New do
                   placeholder="e.g. 15"
                 />
               </div>
+              <label class={[
+                "inline-flex items-center justify-center w-full px-4 py-2.5 rounded-lg transition-colors duration-150 border",
+                if(resume_uploading?(@uploads.resume),
+                  do: "text-zinc-400 border-gray-200 cursor-wait",
+                  else: "text-zinc-500 border-gray-300 cursor-pointer"
+                )
+              ]}>
+                <%= cond do %>
+                  <% resume_uploading?(@uploads.resume) -> %>
+                    <div class="w-4 h-4 mr-2 rounded-full border-2 border-gray-200 border-t-gray-600 animate-spin" />
+                    Uploading...
+                  <% not Enum.empty?(@uploads.resume.entries) -> %>
+                    <.icon name="hero-document-check" class="w-5 h-5 mr-2 text-emerald-500" />
+                    {hd(@uploads.resume.entries).client_name}
+                  <% true -> %>
+                    <.icon name="hero-document-arrow-up" class="w-5 h-5 mr-2" /> Upload Resume (PDF)
+                <% end %>
+                <.live_file_input upload={@uploads.resume} class="hidden" />
+              </label>
               <.input
                 field={@form[:remote?]}
                 type="checkbox"
@@ -172,24 +199,76 @@ defmodule JobHuntingExWeb.QueryLive.New do
     """
   end
 
+  defp resume_uploading?(upload_config) do
+    Enum.any?(upload_config.entries, fn entry ->
+      entry.progress > 0 and not entry.done?
+    end)
+  end
+
+  defp handle_progress(:resume, entry, socket) do
+    if entry.done? do
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp upload_error_to_string(:too_large), do: "File is too large"
+  defp upload_error_to_string(:not_accepted), do: "Invalid file type. Please upload a PDF"
+  defp upload_error_to_string(:too_many_files), do: "Too many files selected"
+  defp upload_error_to_string(_), do: "Upload failed"
+
   def handle_event("validate", %{"query" => query_params}, socket) do
     changeset =
       Query.changeset(%Query{}, query_params)
       |> Map.put(:action, :validate)
 
+    socket = assign(socket, form: to_form(changeset))
+
+    {socket, errors} =
+      Enum.reduce(socket.assigns.uploads.resume.entries, {socket, []}, fn entry, {sock, errs} ->
+        entry_errors = upload_errors(sock.assigns.uploads.resume, entry)
+
+        if entry_errors != [] do
+          {cancel_upload(sock, :resume, entry.ref),
+           errs ++ Enum.map(entry_errors, &upload_error_to_string/1)}
+        else
+          {sock, errs}
+        end
+      end)
+
+    upload_config_errors = upload_errors(socket.assigns.uploads.resume)
+
+    all_errors =
+      errors ++ Enum.map(upload_config_errors, &upload_error_to_string/1)
+
     socket =
-      socket
-      |> assign(form: to_form(changeset))
+      if all_errors != [] do
+        put_flash(socket, :error, Enum.join(Enum.uniq(all_errors), ". "))
+      else
+        socket
+      end
 
     {:noreply, socket}
   end
 
   def handle_event("search", %{"query" => query_params}, socket) do
+    text =
+      consume_uploaded_entries(socket, :resume, fn %{path: path}, _entry ->
+        case(Pdf.extract_text(path)) do
+          {:ok, text} -> {:ok, text}
+          {:error, reason} -> {:error, reason}
+        end
+      end)
+      |> List.first()
+
+    # what happens if extracting text errors?
+
     socket =
       socket
       |> assign(:view, :show)
       |> assign(:listings, AsyncResult.loading())
-      |> start_async(:query, fn -> Data.process(query_params) end)
+      |> start_async(:query, fn -> Data.process(query_params, text) end)
 
     {:noreply, socket}
   end
@@ -220,7 +299,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
     {:noreply, socket}
   end
 
-  def hanle_async(:query, {:exit, reason}, socket) do
+  def handle_async(:query, {:exit, reason}, socket) do
     %{listings: listings} = socket.assigns
 
     socket =
