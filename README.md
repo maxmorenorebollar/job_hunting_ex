@@ -4,8 +4,8 @@ A website to help get better job listings, and help automate some of the job hun
 Currently only supports job listings from dice.
 
 # Site Images
-![search]("/docs/Screenshot 2026-03-02 at 11.57.38 PM.png")
-![home]("Screenshot 2026-03-03 at 12.12.20 AM.png")
+![home](/docs/home.png)
+![search](/docs/search.png)
 
 # Query Architecture
 ![query](/docs/Untitled-2026-02-28-0929.png)
