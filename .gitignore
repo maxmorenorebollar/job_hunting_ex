@@ -37,5 +37,5 @@ npm-debug.log
 
 
 # Ignore .DS_store
-*.DS_store
+.DS_store
 
