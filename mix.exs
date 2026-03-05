@@ -68,7 +68,8 @@ defmodule JobHuntingEx.MixProject do
       {:bandit, "~> 1.5"},
       {:anubis_mcp, "~> 0.17"},
       {:floki, "~> 0.38.0"},
-      {:pgvector, "~> 0.3.0"}
+      {:pgvector, "~> 0.3.0"},
+      {:tidewave, "~> 0.5", only: :dev}
     ]
   end
 

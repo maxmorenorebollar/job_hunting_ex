@@ -161,7 +161,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
               >
                 <div class="flex items-start justify-between gap-3 mb-2">
                   <p class="text-sm font-medium text-gray-900 group-hover:text-gray-600 transition-colors truncate">
-                    {listing.url}
+                    Job Title @ {listing.company_name}
                   </p>
                   <.icon
                     name="hero-arrow-top-right-on-square"

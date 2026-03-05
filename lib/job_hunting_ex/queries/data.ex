@@ -11,7 +11,9 @@ defmodule JobHuntingEx.Queries.Data do
   defstruct [
     :url,
     :html,
-    :job_title,
+    :company_name,
+    :company_location,
+    :title,
     :description,
     :skills,
     :years_of_experience,
@@ -24,11 +26,17 @@ defmodule JobHuntingEx.Queries.Data do
     :timer.sleep(Enum.random([1_000, 1_500, 1_750]))
   end
 
-  defp fetch_urls(params) do
+  def fetch_jobs(params) do
     with {:ok, %{result: payload}} <- JobHuntingEx.McpClient.call_tool("search_jobs", params),
          %{"content" => [%{"text" => text} | _]} <- payload,
          {:ok, %{"data" => jobs}} <- Jason.decode(text) do
-      {:ok, Enum.map(jobs, fn job -> job["detailsPageUrl"] end)}
+      jobs_with_data =
+        jobs
+        |> Enum.map(fn job ->
+          {job["detailsPageUrl"], job["companyName"], job["jobLocation"]["displayName"]}
+        end)
+
+      {:ok, jobs_with_data}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -50,7 +58,6 @@ defmodule JobHuntingEx.Queries.Data do
     payload
   end
 
-  @spec extract_description(String.t()) :: {:ok, String.t()} | {:error, String.t()}
   def extract_description(html_string) do
     case Floki.parse_document(html_string) do
       {:ok, document} ->
@@ -276,9 +283,11 @@ defmodule JobHuntingEx.Queries.Data do
     params_merged = Map.merge(static_params, params_modified)
 
     listing_ids =
-      with {:ok, urls} <- fetch_urls(params_merged) do
-        urls
-        |> Enum.map(fn url -> %Data{url: url} end)
+      with {:ok, jobs} <- fetch_jobs(params_merged) do
+        jobs
+        |> Enum.map(fn {url, company_name, company_location} ->
+          %Data{url: url, company_name: company_name, company_location: company_location}
+        end)
         |> Task.async_stream(
           fn data ->
             polite_sleep()
@@ -350,8 +359,6 @@ defmodule JobHuntingEx.Queries.Data do
           Logger.error("Could not query Dice MCP", "reason: #{IO.inspect(err)}")
           {:error, "Failled on start"}
       end
-
-    IO.inspect(listing_ids)
 
     case listing_ids do
       {:error, reason} ->

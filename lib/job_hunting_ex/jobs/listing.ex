@@ -5,6 +5,8 @@ defmodule JobHuntingEx.Jobs.Listing do
   schema "listings" do
     field :url, :string
     field :title, :string
+    field :company_name, :string
+    field :company_location, :string
     field :description, :string
     field :embeddings, Pgvector.Ecto.Vector
     field :years_of_experience, :integer
@@ -21,6 +23,8 @@ defmodule JobHuntingEx.Jobs.Listing do
     |> cast(params, [
       :url,
       :title,
+      :company_name,
+      :company_location,
       :description,
       :embeddings,
       :years_of_experience,
