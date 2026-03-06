@@ -26,6 +26,18 @@ defmodule JobHuntingEx.Queries.Data do
     :timer.sleep(Enum.random([1_000, 1_500, 1_750]))
   end
 
+  defp normalize_error(err) when is_binary(err) do
+    err
+  end
+
+  defp normalize_error(err) when is_exception(err) do
+    Exception.message(err)
+  end
+
+  defp normalize_error(err) do
+    IO.inspect(err)
+  end
+
   def fetch_jobs(params) do
     with {:ok, %{result: payload}} <- JobHuntingEx.McpClient.call_tool("search_jobs", params),
          %{"content" => [%{"text" => text} | _]} <- payload,
@@ -42,48 +54,29 @@ defmodule JobHuntingEx.Queries.Data do
     end
   end
 
-  def test(params) do
-    static_params = %{
-      "radius_unit" => "mi",
-      "jobs_per_page" => 100,
-      "posted_date" => "THREE",
-      "workplace_types" => ["On-Site", "Hybrid"]
-    }
-
-    query_params = Map.merge(params, static_params)
-
-    {:ok, %{result: payload}} =
-      JobHuntingEx.McpClient.call_tool("search_jobs", query_params)
-
-    payload
-  end
-
-  def extract_description(html_string) do
-    case Floki.parse_document(html_string) do
-      {:ok, document} ->
-        description =
-          document
-          |> Floki.find("[class^='job-detail-description']")
-          |> List.first()
-          |> Floki.text()
-
-        {:ok, description}
-
+  @spec fetch_description(String.t(), module()) :: {:ok, String.t()} | {:error, String.t()}
+  def fetch_description(url, http_client \\ Req) do
+    with {:ok, response} <- http_client.get(url),
+         {:ok, description} <- extract_description(response.body) do
+      {:ok, description}
+    else
       {:error, err} ->
-        {:error, err}
+        {:error, "Failed to fetch description for #{url}. #{normalize_error(err)}"}
     end
   end
 
-  @spec fetch_description(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  defp fetch_description(url) do
-    with {:ok, response} <- Req.get(url),
-         {:ok, description} <- extract_description(response.body) do
+  defp extract_description(html) do
+    with {:ok, document} <- Floki.parse_document(html) do
+      description =
+        document
+        |> Floki.find("[class^='job-detail-description']")
+        |> List.first()
+        |> Floki.text()
+
       case description do
         "" -> {:error, "Description could not be found"}
         _ -> {:ok, description}
       end
-    else
-      {:error, reason} -> {:error, reason}
     end
   end
 
