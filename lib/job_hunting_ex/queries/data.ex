@@ -1,9 +1,11 @@
 defmodule JobHuntingEx.Queries.Data do
   require Logger
-  alias JobHuntingEx.Jobs.Listings
+  # alias JobHuntingEx.Jobs.Listings
   alias JobHuntingEx.Queries.Data
   alias JobHuntingEx.Resumes.Resumes
   alias JobHuntingEx.Jobs.Listing
+
+  alias JobHuntingEx.Cache
 
   import Ecto.Query
   import Pgvector.Ecto.Query
@@ -111,7 +113,7 @@ defmodule JobHuntingEx.Queries.Data do
     end
   end
 
-  @spec get_embeddings(String.t()) :: list(float())
+  @spec get_embeddings(String.t()) :: {:ok, list(float())} | {:error, list()}
   def get_embeddings(document) when is_binary(document) do
     body = %{
       "model" => "baai/bge-m3",
@@ -127,11 +129,11 @@ defmodule JobHuntingEx.Queries.Data do
              ],
              json: body
            ) do
-      embeddings =
+      [embedding] =
         res.body["data"]
         |> Enum.map(& &1["embedding"])
 
-      {:ok, embeddings}
+      {:ok, embedding}
     else
       {:error, err} -> {:error, [normalize_error(err)]}
     end
@@ -245,8 +247,6 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   def process(params, resume_text) do
-    IO.inspect(params)
-
     static_params = %{
       "radius_unit" => "mi",
       "jobs_per_page" => 100,
@@ -336,12 +336,12 @@ defmodule JobHuntingEx.Queries.Data do
           timeout: 100_000
         )
         |> Stream.flat_map(&handle_result(&1))
-        |> Enum.map(fn data -> Listings.create(Map.from_struct(data)) end)
-        |> Enum.flat_map(fn
-          {:ok, struct} -> [struct.id]
-          # throw away all errors for now
-          {:error, _struct} -> []
-        end)
+        |> Enum.to_list()
+        |> Cache.write_through()
+        |> case do
+          {:ok, listings} -> Enum.map(listings, & &1.id)
+          {:error, reason} -> {:error, reason}
+        end
       else
         {:error, err} ->
           Logger.error("Could not query Dice MCP", "reason: #{IO.inspect(err)}")

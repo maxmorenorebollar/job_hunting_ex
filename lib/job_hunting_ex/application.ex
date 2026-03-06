@@ -16,7 +16,8 @@ defmodule JobHuntingEx.Application do
       # {JobHuntingEx.Worker, arg},
       # Start to serve requests, typically the last entry
       JobHuntingExWeb.Endpoint,
-      {JobHuntingEx.McpClient, transport: {:streamable_http, base_url: "https://mcp.dice.com/"}}
+      {JobHuntingEx.McpClient, transport: {:streamable_http, base_url: "https://mcp.dice.com/"}},
+      {Cachex, [:cache]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
