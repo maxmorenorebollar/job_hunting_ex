@@ -22,6 +22,10 @@ defmodule JobHuntingEx.Queries.Data do
     :error
   ]
 
+  defp http_client() do
+    Application.get_env(:job_hunting_ex, :http_client)
+  end
+
   defp polite_sleep do
     :timer.sleep(Enum.random([1_000, 1_500, 1_750]))
   end
@@ -61,7 +65,7 @@ defmodule JobHuntingEx.Queries.Data do
       {:ok, description}
     else
       {:error, err} ->
-        {:error, "Failed to fetch description for #{url}. #{normalize_error(err)}"}
+        {:error, ["Failed to fetch description for", url, normalize_error(err)]}
     end
   end
 
@@ -74,39 +78,36 @@ defmodule JobHuntingEx.Queries.Data do
         |> Floki.text()
 
       case description do
-        "" -> {:error, "Description could not be found"}
+        "" -> {:error, ["Description could not be found"]}
         _ -> {:ok, description}
       end
     end
   end
 
+  @spec get_embeddings(list(String.t())) :: list(list(float()))
   def get_embeddings(documents) when is_list(documents) do
     body = %{
       "model" => "baai/bge-m3",
       "input" => Enum.map(documents, fn document -> document.description end)
     }
 
-    response =
-      Req.post(
-        url: "https://openrouter.ai/api/v1/embeddings",
-        headers: [
-          authorization: "Bearer #{System.get_env("OPENROUTER_API_KEY")}",
-          content_type: "application/json"
-        ],
-        json: body
-      )
-
     # response body will have map %{"data" => [list of embeddings]} as response
-    case response do
-      {:ok, res} ->
-        embeddings =
-          res.body["data"]
-          |> Enum.map(& &1["embedding"])
+    with {:ok, res} <-
+           http_client().post(
+             url: "https://openrouter.ai/api/v1/embeddings",
+             headers: [
+               authorization: "Bearer #{System.get_env("OPENROUTER_API_KEY")}",
+               content_type: "application/json"
+             ],
+             json: body
+           ) do
+      embeddings =
+        res.body["data"]
+        |> Enum.map(& &1["embedding"])
 
-        {:ok, embeddings}
-
-      {:error, reason} ->
-        {:error, reason}
+      {:ok, embeddings}
+    else
+      {:error, err} -> {:error, [normalize_error(err)]}
     end
   end
 
@@ -117,28 +118,22 @@ defmodule JobHuntingEx.Queries.Data do
       "input" => document
     }
 
-    response =
-      Req.post(
-        url: "https://openrouter.ai/api/v1/embeddings",
-        headers: [
-          authorization: "Bearer #{System.get_env("OPENROUTER_API_KEY")}",
-          content_type: "application/json"
-        ],
-        json: body
-      )
+    with {:ok, res} <-
+           http_client().post(
+             url: "https://openrouter.ai/api/v1/embeddings",
+             headers: [
+               authorization: "Bearer #{System.get_env("OPENROUTER_API_KEY")}",
+               content_type: "application/json"
+             ],
+             json: body
+           ) do
+      embeddings =
+        res.body["data"]
+        |> Enum.map(& &1["embedding"])
 
-    # response body will have map %{"data" => [list of embeddings]} as response
-    case response do
-      {:ok, res} ->
-        embeddings =
-          res.body["data"]
-          |> List.first()
-          |> Map.get("embedding")
-
-        {:ok, embeddings}
-
-      {:error, reason} ->
-        {:error, reason}
+      {:ok, embeddings}
+    else
+      {:error, err} -> {:error, [normalize_error(err)]}
     end
   end
 
@@ -229,7 +224,7 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   defp handle_result({:ok, %{error: reason} = _data}) do
-    Logger.error("Failure: #{IO.inspect(reason)} )")
+    Logger.error("Failure: #{reason} )")
     []
   end
 
