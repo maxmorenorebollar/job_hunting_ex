@@ -41,7 +41,7 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   defp normalize_error(err) do
-    IO.inspect(err)
+    inspect(err)
   end
 
   def fetch_jobs(params) do
@@ -184,8 +184,6 @@ defmodule JobHuntingEx.Queries.Data do
 
     case response do
       {:ok, res} ->
-        IO.inspect(res.body)
-
         json_content =
           res.body
           |> Map.get("choices")
@@ -226,13 +224,48 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   defp handle_result({:ok, %{error: reason} = _data}) do
-    Logger.error("Failure: #{reason} )")
+    Logger.error("Failure: #{inspect(reason)}")
     []
   end
 
   defp handle_result({:exit, reason}) do
-    Logger.error("Exit: #{IO.inspect(reason)}")
+    Logger.error("Exit: #{inspect(reason)}")
     []
+  end
+
+  defp normalize_query_params(params) do
+    static_params = %{
+      "radius_unit" => "mi",
+      "jobs_per_page" => 100,
+      "posted_date" => "THREE"
+    }
+
+    static_params =
+      if params["remote?"] do
+        Map.put(static_params, "workplace_types", ["On-Site", "Hybrid", "Remote"])
+      else
+        Map.put(static_params, "workplace_types", ["On-Site", "Hybrid"])
+      end
+
+    {_extra_keys, needed_keys} =
+      Map.split(params, ["minimum_years_of_experience", "maximum_years_of_experience", "remote?"])
+
+    Map.merge(static_params, needed_keys)
+  end
+
+  defp get_jobs(params_merged) do
+    with {:ok, jobs} <- fetch_jobs(params_merged) do
+      jobs
+      |> Enum.map(fn {url, company_name, company_location} ->
+        %Data{url: url, company_name: company_name, company_location: company_location}
+      end)
+      |> Enum.split_with(fn data ->
+        case Cachex.exists?(:cache, data.url) do
+          {:ok, true} -> true
+          {:ok, false} -> false
+        end
+      end)
+    end
   end
 
   def process(%{
@@ -247,35 +280,16 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   def process(params, resume_text) do
-    static_params = %{
-      "radius_unit" => "mi",
-      "jobs_per_page" => 100,
-      "posted_date" => "THREE"
-    }
-
     {min_yoe, _remainder} = Integer.parse(params["minimum_years_of_experience"])
     {max_yoe, _remainder} = Integer.parse(params["maximum_years_of_experience"])
 
-    static_params =
-      if params["remote?"] do
-        Map.put(static_params, "workplace_types", ["On-Site", "Hybrid", "Remote"])
-      else
-        Map.put(static_params, "workplace_types", ["On-Site", "Hybrid"])
-      end
-
-    params_modified =
-      Map.filter(params, fn {key, _value} -> key != "minimum_years_of_experience" end)
-      |> Map.filter(fn {key, _value} -> key != "maximum_years_of_experience" end)
-      |> Map.filter(fn {key, _value} -> key != "remote?" end)
-
-    params_merged = Map.merge(static_params, params_modified)
+    params_merged = normalize_query_params(params)
 
     listing_ids =
-      with {:ok, jobs} <- fetch_jobs(params_merged) do
-        jobs
-        |> Enum.map(fn {url, company_name, company_location} ->
-          %Data{url: url, company_name: company_name, company_location: company_location}
-        end)
+      with {processed, need_to_process} when is_list(processed) <- get_jobs(params_merged) do
+        Logger.info(length(processed))
+
+        need_to_process
         |> Task.async_stream(
           fn data ->
             polite_sleep()
@@ -339,7 +353,7 @@ defmodule JobHuntingEx.Queries.Data do
         |> Enum.to_list()
         |> Cache.write_through()
         |> case do
-          {:ok, listings} -> Enum.map(listings, & &1.id)
+          {:ok, listings} -> Enum.map(listings, & &1.url) ++ Enum.map(processed, & &1.url)
           {:error, reason} -> {:error, reason}
         end
       else
@@ -353,16 +367,18 @@ defmodule JobHuntingEx.Queries.Data do
         {:error, reason}
 
       ids when is_list(ids) ->
-        {:ok, embeddings} = get_embeddings(resume_text)
-        {:ok, resume} = Resumes.create(%{"embeddings" => embeddings})
-
-        JobHuntingEx.Repo.all(
-          from i in Listing,
-            where:
-              i.id in ^ids and i.years_of_experience >= ^min_yoe and
-                i.years_of_experience <= ^max_yoe,
-            order_by: cosine_distance(i.embeddings, ^resume.embeddings)
-        )
+        with {:ok, embeddings} <- get_embeddings(resume_text),
+             {:ok, resume} <- Resumes.create(%{"embeddings" => embeddings}) do
+          JobHuntingEx.Repo.all(
+            from i in Listing,
+              where:
+                i.url in ^ids and i.years_of_experience >= ^min_yoe and
+                  i.years_of_experience <= ^max_yoe,
+              order_by: cosine_distance(i.embeddings, ^resume.embeddings)
+          )
+        else
+          {:error, reason} -> {:error, reason}
+        end
     end
   end
 end
