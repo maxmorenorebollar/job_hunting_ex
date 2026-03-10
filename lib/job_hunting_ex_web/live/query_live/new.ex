@@ -23,6 +23,10 @@ defmodule JobHuntingExWeb.QueryLive.New do
     {:ok, socket}
   end
 
+  def handle_params(_params, _uri, socket) do
+    {:noreply, socket}
+  end
+
   def render(%{view: :form} = assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
@@ -120,7 +124,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
   def render(%{view: :show} = assigns) do
     ~H"""
     <Layouts.app flash={@flash}>
-      <.async_result :let={listings} assign={@listings}>
+      <.async_result :let={job_id} assign={@job_id}>
         <:loading>
           <div class="flex flex-col items-center justify-center py-20">
             <div class="w-8 h-8 rounded-full border-2 border-gray-200 border-t-gray-900 animate-spin mb-4" />
@@ -136,14 +140,6 @@ defmodule JobHuntingExWeb.QueryLive.New do
             <p class="text-gray-500 text-sm mt-1">
               Failed to load listings. Please try again.
             </p>
-          </div>
-        </:failed>
-
-        <div>
-          <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-semibold text-gray-900">
-              {length(listings)} {if length(listings) == 1, do: "result", else: "results"}
-            </h2>
             <.link
               navigate="/"
               class="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
@@ -151,49 +147,63 @@ defmodule JobHuntingExWeb.QueryLive.New do
               <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" /> New search
             </.link>
           </div>
+        </:failed>
 
-          <div class="divide-y divide-gray-100">
-            <%= for listing <- listings do %>
-              <a
-                href={listing.url}
-                target="_blank"
-                class="block py-4 first:pt-0 last:pb-0 group"
-              >
-                <div class="flex items-start justify-between gap-3 mb-2">
-                  <p class="text-sm font-medium text-gray-900 group-hover:text-gray-600 transition-colors truncate">
-                    Job Title @ {listing.company_name}
-                  </p>
-                  <.icon
-                    name="hero-arrow-top-right-on-square"
-                    class="w-4 h-4 text-gray-300 group-hover:text-gray-500 shrink-0 transition-colors"
-                  />
-                </div>
-
-                <p class="text-sm text-gray-500 leading-relaxed line-clamp-2 mb-3">
-                  {listing.summary}
-                </p>
-
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
-                    {listing.years_of_experience}+ yrs
-                  </span>
-                  <span
-                    :for={skill <- Enum.take(listing.skills, 5)}
-                    class="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md"
-                  >
-                    {skill}
-                  </span>
-                  <span
-                    :if={length(listing.skills) > 5}
-                    class="text-xs text-gray-400"
-                  >
-                    +{length(listing.skills) - 5} more
-                  </span>
-                </div>
-              </a>
-            <% end %>
-          </div>
-        </div>
+        <%!-- <div> --%>
+        <%!--   <div class="flex items-center justify-between mb-6"> --%>
+        <%!--     <h2 class="text-lg font-semibold text-gray-900"> --%>
+        <%!--       {length(listings)} {if length(listings) == 1, do: "result", else: "results"} --%>
+        <%!--     </h2> --%>
+        <%!--     <.link --%>
+        <%!--       navigate="/" --%>
+        <%!--       class="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors" --%>
+        <%!--     > --%>
+        <%!--       <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" /> New search --%>
+        <%!--     </.link> --%>
+        <%!--   </div> --%>
+        <%!----%>
+        <%!--   <div class="divide-y divide-gray-100"> --%>
+        <%!--     <%= for listing <- listings do %> --%>
+        <%!--       <a --%>
+        <%!--         href={listing.url} --%>
+        <%!--         target="_blank" --%>
+        <%!--         class="block py-4 first:pt-0 last:pb-0 group" --%>
+        <%!--       > --%>
+        <%!--         <div class="flex items-start justify-between gap-3 mb-2"> --%>
+        <%!--           <p class="text-sm font-medium text-gray-900 group-hover:text-gray-600 transition-colors truncate"> --%>
+        <%!--             Job Title @ {listing.company_name} --%>
+        <%!--           </p> --%>
+        <%!--           <.icon --%>
+        <%!--             name="hero-arrow-top-right-on-square" --%>
+        <%!--             class="w-4 h-4 text-gray-300 group-hover:text-gray-500 shrink-0 transition-colors" --%>
+        <%!--           /> --%>
+        <%!--         </div> --%>
+        <%!----%>
+        <%!--         <p class="text-sm text-gray-500 leading-relaxed line-clamp-2 mb-3"> --%>
+        <%!--           {listing.summary} --%>
+        <%!--         </p> --%>
+        <%!----%>
+        <%!--         <div class="flex flex-wrap items-center gap-1.5"> --%>
+        <%!--           <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md"> --%>
+        <%!--             {listing.years_of_experience}+ yrs --%>
+        <%!--           </span> --%>
+        <%!--           <span --%>
+        <%!--             :for={skill <- Enum.take(listing.skills, 5)} --%>
+        <%!--             class="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-md" --%>
+        <%!--           > --%>
+        <%!--             {skill} --%>
+        <%!--           </span> --%>
+        <%!--           <span --%>
+        <%!--             :if={length(listing.skills) > 5} --%>
+        <%!--             class="text-xs text-gray-400" --%>
+        <%!--           > --%>
+        <%!--             +{length(listing.skills) - 5} more --%>
+        <%!--           </span> --%>
+        <%!--         </div> --%>
+        <%!--       </a> --%>
+        <%!--     <% end %> --%>
+        <%!--   </div> --%>
+        <%!-- </div> --%>
       </.async_result>
     </Layouts.app>
     """
@@ -262,52 +272,47 @@ defmodule JobHuntingExWeb.QueryLive.New do
       end)
       |> List.first()
 
-    # what happens if extracting text errors?
+    # This retrieves the first element in the list, but there could potentially be more.
+    # If a user submits two documents then both paths are stored. Then this will have multiple information
+    # what happens if extracting_text errors?
 
     socket =
       socket
       |> assign(:view, :show)
-      |> assign(:listings, AsyncResult.loading())
+      |> assign(:job_id, AsyncResult.loading())
       |> start_async(:query, fn -> Data.process(query_params, text) end)
 
     {:noreply, socket}
   end
 
   def handle_async(:query, {:ok, {:error, reason}}, socket) do
-    %{listings: listings} = socket.assigns
+    %{job_id: job_id} = socket.assigns
 
     socket =
       socket
-      |> assign(:listings, AsyncResult.failed(listings, {:error, reason}))
+      |> assign(:listings, AsyncResult.failed(job_id, {:error, reason}))
 
     {:noreply, socket}
   end
 
-  def handle_async(:query, {:ok, fetched_listings}, socket) do
-    %{listings: listings} = socket.assigns
+  def handle_async(:query, {:ok, {:ok, queried_job_id}}, socket) do
+    IO.inspect(queried_job_id)
+    %{job_id: job_id} = socket.assigns
 
     socket =
       socket
-      |> assign(:listings, AsyncResult.ok(listings, fetched_listings))
+      |> assign(:job_id, AsyncResult.ok(job_id, queried_job_id))
 
-    {:noreply, socket}
+    {:noreply, redirect(socket, to: ~p"/query/#{queried_job_id}")}
   end
 
   def handle_async(:query, {:exit, reason}, socket) do
-    %{listings: listings} = socket.assigns
+    %{job_id: job_id} = socket.assigns
 
     socket =
       socket
-      |> assign(:listings, AsyncResult.failed(listings, {:exit, reason}))
+      |> assign(:listings, AsyncResult.failed(job_id, {:exit, reason}))
 
     {:noreply, socket}
-  end
-
-  def handle_info("done", socket) do
-    {:noreply, socket |> put_flash(:info, "query succeeded")}
-  end
-
-  def handle_info("failed", socket) do
-    {:noreply, socket |> put_flash(:info, "query failed")}
   end
 end

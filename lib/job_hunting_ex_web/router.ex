@@ -18,6 +18,8 @@ defmodule JobHuntingExWeb.Router do
     pipe_through :browser
 
     live "/", QueryLive.New
+
+    get "/query/:id", QueryController, :show
   end
 
   # Other scopes may use custom stacks.

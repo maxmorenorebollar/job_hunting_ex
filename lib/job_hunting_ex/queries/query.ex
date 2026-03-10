@@ -1,7 +1,8 @@
 defmodule JobHuntingEx.Queries.Query do
   use Ecto.Schema
+  alias Ecto.Changeset
 
-  schema "query" do
+  embedded_schema do
     field :keyword, :string
     field :location, :string
     field :radius, :integer
@@ -14,7 +15,7 @@ defmodule JobHuntingEx.Queries.Query do
 
   def changeset(query, params \\ %{}) do
     query
-    |> Ecto.Changeset.cast(params, [
+    |> Changeset.cast(params, [
       :keyword,
       :location,
       :radius,
@@ -24,7 +25,7 @@ defmodule JobHuntingEx.Queries.Query do
       :maximum_years_of_experience,
       :remote?
     ])
-    |> Ecto.Changeset.validate_required([
+    |> Changeset.validate_required([
       :keyword,
       :minimum_years_of_experience,
       :maximum_years_of_experience

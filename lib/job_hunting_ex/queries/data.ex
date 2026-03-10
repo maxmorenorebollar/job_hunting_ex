@@ -29,7 +29,7 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   defp polite_sleep do
-    :timer.sleep(Enum.random([1_000, 1_500, 1_750]))
+    :timer.sleep(Enum.random([750, 1_000, 1_250]))
   end
 
   defp normalize_error(err) when is_binary(err) do
@@ -287,8 +287,6 @@ defmodule JobHuntingEx.Queries.Data do
 
     listing_ids =
       with {processed, need_to_process} when is_list(processed) <- get_jobs(params_merged) do
-        Logger.info(length(processed))
-
         need_to_process
         |> Task.async_stream(
           fn data ->
@@ -302,7 +300,7 @@ defmodule JobHuntingEx.Queries.Data do
                 %{data | error: reason}
             end
           end,
-          max_concurrency: 2,
+          max_concurrency: 6,
           ordered: false,
           timeout: 10_000,
           on_timeout: :kill_task
@@ -367,15 +365,30 @@ defmodule JobHuntingEx.Queries.Data do
         {:error, reason}
 
       ids when is_list(ids) ->
+        uuid = Ecto.UUID.generate()
+
         with {:ok, embeddings} <- get_embeddings(resume_text),
              {:ok, resume} <- Resumes.create(%{"embeddings" => embeddings}) do
-          JobHuntingEx.Repo.all(
-            from i in Listing,
-              where:
-                i.url in ^ids and i.years_of_experience >= ^min_yoe and
-                  i.years_of_experience <= ^max_yoe,
-              order_by: cosine_distance(i.embeddings, ^resume.embeddings)
-          )
+          ordered_listings =
+            JobHuntingEx.Repo.all(
+              from i in Listing,
+                where:
+                  i.url in ^ids and i.years_of_experience >= ^min_yoe and
+                    i.years_of_experience <= ^max_yoe,
+                order_by: cosine_distance(i.embeddings, ^resume.embeddings)
+            )
+
+          query_results =
+            Enum.with_index(ordered_listings, fn listing, index ->
+              %{job_id: uuid, listing_id: listing.id, sequence: index}
+            end)
+
+          # need to refactor this
+
+          case JobHuntingEx.Queries.create_query_results(query_results) do
+            {:ok, _results} -> {:ok, uuid}
+            {:error, reason} -> {:error, reason}
+          end
         else
           {:error, reason} -> {:error, reason}
         end
