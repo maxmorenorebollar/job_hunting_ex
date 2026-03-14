@@ -1,11 +1,12 @@
 defmodule JobHuntingEx.Queries.Data do
   require Logger
-  # alias JobHuntingEx.Jobs.Listings
+
   alias JobHuntingEx.Queries.Data
   alias JobHuntingEx.Resumes.Resumes
   alias JobHuntingEx.Jobs.Listing
-
   alias JobHuntingEx.Cache
+  alias JobHuntingEx.Error
+  alias JobHuntingEx.Embeddings
 
   import Ecto.Query
   import Pgvector.Ecto.Query
@@ -32,18 +33,6 @@ defmodule JobHuntingEx.Queries.Data do
     :timer.sleep(Enum.random([750, 1_000, 1_250]))
   end
 
-  defp normalize_error(err) when is_binary(err) do
-    err
-  end
-
-  defp normalize_error(err) when is_exception(err) do
-    Exception.message(err)
-  end
-
-  defp normalize_error(err) do
-    inspect(err)
-  end
-
   def fetch_jobs(params) do
     with {:ok, %{result: payload}} <- JobHuntingEx.McpClient.call_tool("search_jobs", params),
          %{"content" => [%{"text" => text} | _]} <- payload,
@@ -67,7 +56,7 @@ defmodule JobHuntingEx.Queries.Data do
       {:ok, description}
     else
       {:error, err} ->
-        {:error, ["Failed to fetch description for", url, normalize_error(err)]}
+        {:error, ["Failed to fetch description for", url, Error.normalize_error(err)]}
     end
   end
 
@@ -83,59 +72,6 @@ defmodule JobHuntingEx.Queries.Data do
         "" -> {:error, ["Description could not be found"]}
         _ -> {:ok, description}
       end
-    end
-  end
-
-  @spec get_embeddings(list(String.t())) :: list(list(float()))
-  def get_embeddings(documents) when is_list(documents) do
-    body = %{
-      "model" => "baai/bge-m3",
-      "input" => Enum.map(documents, fn document -> document.description end)
-    }
-
-    # response body will have map %{"data" => [list of embeddings]} as response
-    with {:ok, res} <-
-           http_client().post(
-             url: "https://openrouter.ai/api/v1/embeddings",
-             headers: [
-               authorization: "Bearer #{System.get_env("OPENROUTER_API_KEY")}",
-               content_type: "application/json"
-             ],
-             json: body
-           ) do
-      embeddings =
-        res.body["data"]
-        |> Enum.map(& &1["embedding"])
-
-      {:ok, embeddings}
-    else
-      {:error, err} -> {:error, [normalize_error(err)]}
-    end
-  end
-
-  @spec get_embeddings(String.t()) :: {:ok, list(float())} | {:error, list()}
-  def get_embeddings(document) when is_binary(document) do
-    body = %{
-      "model" => "baai/bge-m3",
-      "input" => document
-    }
-
-    with {:ok, res} <-
-           http_client().post(
-             url: "https://openrouter.ai/api/v1/embeddings",
-             headers: [
-               authorization: "Bearer #{System.get_env("OPENROUTER_API_KEY")}",
-               content_type: "application/json"
-             ],
-             json: body
-           ) do
-      [embedding] =
-        res.body["data"]
-        |> Enum.map(& &1["embedding"])
-
-      {:ok, embedding}
-    else
-      {:error, err} -> {:error, [normalize_error(err)]}
     end
   end
 
@@ -330,7 +266,7 @@ defmodule JobHuntingEx.Queries.Data do
         |> Stream.chunk_every(20)
         |> Task.async_stream(
           fn batch ->
-            case get_embeddings(batch) do
+            case Embeddings.get_embeddings(Enum.map(batch, & &1.description)) do
               {:ok, embeddings} ->
                 Enum.zip(batch, embeddings)
                 |> Enum.map(fn
@@ -367,7 +303,7 @@ defmodule JobHuntingEx.Queries.Data do
       ids when is_list(ids) ->
         uuid = Ecto.UUID.generate()
 
-        with {:ok, embeddings} <- get_embeddings(resume_text),
+        with {:ok, embeddings} <- Embeddings.get_embeddings(resume_text),
              {:ok, resume} <- Resumes.create(%{"embeddings" => embeddings}) do
           ordered_listings =
             JobHuntingEx.Repo.all(
