@@ -1,4 +1,8 @@
 defmodule JobHuntingEx.Queries.Data do
+  @moduledoc """
+  Provides the main functionality to handle processing a query
+  """
+
   require Logger
 
   alias JobHuntingEx.Queries.Data
@@ -24,10 +28,6 @@ defmodule JobHuntingEx.Queries.Data do
     :embeddings,
     :error
   ]
-
-  defp http_client() do
-    Application.get_env(:job_hunting_ex, :http_client)
-  end
 
   defp polite_sleep do
     :timer.sleep(Enum.random([750, 1_000, 1_250]))
@@ -292,7 +292,7 @@ defmodule JobHuntingEx.Queries.Data do
         end
       else
         {:error, err} ->
-          Logger.error("Could not query Dice MCP", "reason: #{IO.inspect(err)}")
+          Logger.error("Could not query Dice MCP", "reason: #{inspect(err)}")
           {:error, "Failled on start"}
       end
 

@@ -296,7 +296,6 @@ defmodule JobHuntingExWeb.QueryLive.New do
   end
 
   def handle_async(:query, {:ok, {:ok, queried_job_id}}, socket) do
-    IO.inspect(queried_job_id)
     %{job_id: job_id} = socket.assigns
 
     socket =

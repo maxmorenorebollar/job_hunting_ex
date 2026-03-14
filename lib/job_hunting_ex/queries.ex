@@ -1,4 +1,7 @@
 defmodule JobHuntingEx.Queries do
+  @moduledoc """
+  Queries Context
+  """
   import Ecto.Query
 
   alias JobHuntingEx.Repo

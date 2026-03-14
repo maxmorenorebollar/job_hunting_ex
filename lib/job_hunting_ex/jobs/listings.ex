@@ -1,4 +1,8 @@
 defmodule JobHuntingEx.Jobs.Listings do
+  @moduledoc """
+  Context module for creating and managing job listings.
+  """
+
   alias JobHuntingEx.Jobs.Listing
 
   def create(params) do

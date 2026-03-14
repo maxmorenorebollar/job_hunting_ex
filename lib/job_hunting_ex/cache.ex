@@ -1,4 +1,7 @@
 defmodule JobHuntingEx.Cache do
+  @moduledoc """
+  Provides functions to interact with in-memory cache
+  """
   alias JobHuntingEx.Jobs.Listings
 
   defp time_to_live() do
@@ -10,9 +13,8 @@ defmodule JobHuntingEx.Cache do
       Enum.map(listings, fn listing -> {listing.url, listing} end)
 
     if listings_as_kv != [] do
-      with {:ok, true} <- Cachex.put_many(:cache, listings_as_kv, expire: time_to_live()) do
-        Listings.create_all(Enum.map(listings, &Map.from_struct/1))
-      else
+      case Cachex.put_many(:cache, listings_as_kv, expire: time_to_live()) do
+        {:ok, true} -> Listings.create_all(Enum.map(listings, &Map.from_struct/1))
         {:ok, false} -> {:error, :cache_failed}
       end
     else

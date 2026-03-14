@@ -1,4 +1,7 @@
 defmodule JobHuntingEx.Resumes.Resumes do
+  @moduledoc """
+  Resumes context
+  """
   alias JobHuntingEx.Resumes.Resume
 
   def create(params) do

@@ -1,4 +1,7 @@
 defmodule JobHuntingEx.Resumes.Resume do
+  @moduledoc """
+  Schema for resumes table
+  """
   use Ecto.Schema
   import Ecto.Changeset
 
