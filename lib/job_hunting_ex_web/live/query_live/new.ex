@@ -290,7 +290,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
 
     socket =
       socket
-      |> assign(:listings, AsyncResult.failed(job_id, {:error, reason}))
+      |> assign(:job_id, AsyncResult.failed(job_id, {:error, reason}))
 
     {:noreply, socket}
   end
@@ -311,7 +311,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
 
     socket =
       socket
-      |> assign(:listings, AsyncResult.failed(job_id, {:exit, reason}))
+      |> assign(:job_id, AsyncResult.failed(job_id, {:exit, reason}))
 
     {:noreply, socket}
   end
