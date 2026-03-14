@@ -70,7 +70,8 @@ defmodule JobHuntingEx.MixProject do
       {:floki, "~> 0.38.0"},
       {:pgvector, "~> 0.3.0"},
       {:tidewave, "~> 0.5", only: :dev},
-      {:cachex, "~> 4.0"}
+      {:cachex, "~> 4.0"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
