@@ -1,9 +1,12 @@
 defmodule JobHuntingExWeb.QueryLive.New do
   use JobHuntingExWeb, :live_view
+
+  require Logger
+
   alias JobHuntingEx.Queries.Query
   alias JobHuntingEx.Queries.Data
   alias Phoenix.LiveView.AsyncResult
-  alias JobHuntingEx.Queries.Pdf
+  alias JobHuntingEx.Pdf
 
   def mount(_params, _session, socket) do
     changeset = Query.changeset(%Query{})
@@ -207,25 +210,32 @@ defmodule JobHuntingExWeb.QueryLive.New do
   end
 
   def handle_event("search", %{"query" => query_params}, socket) do
-    text =
+    file_upload =
       consume_uploaded_entries(socket, :resume, fn %{path: path}, _entry ->
-        case(Pdf.extract_text(path)) do
-          {:ok, text} -> text
-          {:error, reason} -> {:error, reason}
+        case Pdf.extract_text(path) do
+          {:ok, text} -> {:ok, text}
+          {:error, reason} -> {:ok, {:error, reason}}
         end
       end)
-      |> List.first()
-
-    # This retrieves the first element in the list, but there could potentially be more.
-    # If a user submits two documents then both paths are stored. Then this will have multiple information
-    # what happens if extracting_text errors?
-    # This will crash because get_embeddings will be called on {:error, reason} if this fails need to handle.
 
     socket =
-      socket
-      |> assign(:view, :show)
-      |> assign(:job_id, AsyncResult.loading())
-      |> start_async(:query, fn -> Data.process(query_params, text) end)
+      case file_upload do
+        [{:error, reason}] ->
+          Logger.error(reason)
+
+          socket
+          |> put_flash(:error, "Failed to read pdf")
+
+        [text] ->
+          socket
+          |> assign(:view, :show)
+          |> assign(:job_id, AsyncResult.loading())
+          |> start_async(:query, fn -> Data.process(query_params, text) end)
+
+        _ ->
+          socket
+          |> put_flash(:error, "Failed to read pdf")
+      end
 
     {:noreply, socket}
   end

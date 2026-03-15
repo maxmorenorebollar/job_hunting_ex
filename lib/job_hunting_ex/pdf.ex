@@ -1,4 +1,4 @@
-defmodule JobHuntingEx.Queries.Pdf do
+defmodule JobHuntingEx.Pdf do
   @moduledoc """
   Provides function to extract text from pdf
   """
@@ -7,7 +7,7 @@ defmodule JobHuntingEx.Queries.Pdf do
   def extract_text(pdf_path) do
     args = [pdf_path, "-"]
 
-    case System.cmd("pdftotext", args) do
+    case System.cmd("pdftotext", args, stderr_to_stdout: true) do
       {text, 0} ->
         {:ok, String.replace(text, "\n", " ")}
 
