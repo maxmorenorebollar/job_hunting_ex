@@ -20,6 +20,7 @@ defmodule JobHuntingExWeb.Router do
     live "/", QueryLive.New
 
     get "/query/:id", QueryController, :show
+
     get "/about", PageController, :about
   end
 

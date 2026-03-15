@@ -71,7 +71,8 @@ defmodule JobHuntingEx.MixProject do
       {:pgvector, "~> 0.3.0"},
       {:tidewave, "~> 0.5", only: :dev},
       {:cachex, "~> 4.0"},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 

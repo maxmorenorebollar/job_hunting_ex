@@ -36,54 +36,54 @@ defmodule JobHuntingExWeb.Layouts do
   def app(assigns) do
     ~H"""
     <div class="min-h-screen flex flex-col">
-    <header class="sticky top-0 z-50 bg-white border-b border-gray-200">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-          <div class="flex-shrink-0">
-            <a
-              href="/"
-              class="inline-flex items-center gap-2 text-xl font-semibold text-gray-900 tracking-tight hover:text-gray-700 transition-colors"
-            >
-              <.icon name="hero-magnifying-glass" class="w-5 h-5" /> Job Lens
-            </a>
+      <header class="sticky top-0 z-50 bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between items-center h-16">
+            <div class="flex-shrink-0">
+              <a
+                href="/"
+                class="inline-flex items-center gap-2 text-xl font-semibold text-gray-900 tracking-tight hover:text-gray-700 transition-colors"
+              >
+                <.icon name="hero-magnifying-glass" class="w-5 h-5" /> Job Lens
+              </a>
+            </div>
+            <nav class="flex items-center space-x-8">
+              <a
+                href={~p"/"}
+                class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Home
+              </a>
+              <%!-- <a --%>
+              <%!--   href="/search" --%>
+              <%!--   class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors" --%>
+              <%!-- > --%>
+              <%!--   Search --%>
+              <%!-- </a> --%>
+            </nav>
           </div>
-          <nav class="flex items-center space-x-8">
-            <a
-              href="/"
-              class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Home
-            </a>
-            <a
-              href="/search"
-              class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              Search
-            </a>
-          </nav>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <main class="flex-1 px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
-        {render_slot(@inner_block)}
-      </div>
-    </main>
-    <footer class="border-t border-gray-900 bg-gray-900 shadow-[0px_4px_12px_0px_rgba(0,0,0,0.15)]">
-      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div class="flex flex-col items-center justify-between gap-4 sm:flex-row sm:gap-0">
-          <nav class="flex items-center gap-6 sm:ml-auto">
-            <a
-              href="/about"
-              class="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-            >
-              About
-            </a>
-          </nav>
+      <main class="flex-1 px-4 py-20 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl space-y-4">
+          {render_slot(@inner_block)}
         </div>
-      </div>
-    </footer>
+      </main>
+      <footer class="border-t border-gray-900 bg-gray-900 shadow-[0px_4px_12px_0px_rgba(0,0,0,0.15)]">
+        <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex items-center justify-end">
+            <nav class="flex items-center gap-6">
+              <a
+                href={~p"/about"}
+                class="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+              >
+                About
+              </a>
+            </nav>
+          </div>
+        </div>
+      </footer>
     </div>
 
     <.flash_group flash={@flash} />
