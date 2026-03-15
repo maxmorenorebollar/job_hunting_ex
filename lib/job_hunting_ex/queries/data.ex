@@ -9,9 +9,9 @@ defmodule JobHuntingEx.Queries.Data do
   alias JobHuntingEx.Resumes.Resumes
   alias JobHuntingEx.Jobs.Listing
   alias JobHuntingEx.Cache
-  alias JobHuntingEx.Error
   alias JobHuntingEx.Embeddings
   alias JobHuntingEx.LlmApi
+  alias JobHuntingEx.Scraper
 
   import Ecto.Query
   import Pgvector.Ecto.Query
@@ -47,32 +47,6 @@ defmodule JobHuntingEx.Queries.Data do
       {:ok, jobs_with_data}
     else
       {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @spec fetch_description(String.t(), module()) :: {:ok, String.t()} | {:error, String.t()}
-  def fetch_description(url, http_client \\ Req) do
-    with {:ok, response} <- http_client.get(url),
-         {:ok, description} <- extract_description(response.body) do
-      {:ok, description}
-    else
-      {:error, err} ->
-        {:error, ["Failed to fetch description for", url, Error.normalize_error(err)]}
-    end
-  end
-
-  defp extract_description(html) do
-    with {:ok, document} <- Floki.parse_document(html) do
-      description =
-        document
-        |> Floki.find("[class^='job-detail-description']")
-        |> List.first()
-        |> Floki.text()
-
-      case description do
-        "" -> {:error, ["Description could not be found"]}
-        _ -> {:ok, description}
-      end
     end
   end
 
@@ -153,12 +127,13 @@ defmodule JobHuntingEx.Queries.Data do
           fn data ->
             polite_sleep()
 
-            case fetch_description(data.url) do
-              {:ok, description} ->
-                %{data | description: description}
-
-              {:error, reason} ->
-                %{data | error: reason}
+            with {:ok, html} <- Scraper.fetch_html(data.url),
+                 {:ok, description} <- Scraper.extract_description(html),
+                 {:ok, job_title} <- Scraper.extract_title(html) do
+              Logger.info(job_title)
+              %{data | description: description, title: job_title}
+            else
+              {:error, reason} -> %{data | error: reason}
             end
           end,
           max_concurrency: 6,

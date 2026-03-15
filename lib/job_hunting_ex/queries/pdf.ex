@@ -8,8 +8,8 @@ defmodule JobHuntingEx.Queries.Pdf do
     args = [pdf_path, "-"]
 
     case System.cmd("pdftotext", args) do
-      {:ok, text} ->
-        String.replace(text, "\n", " ")
+      {text, 0} ->
+        {:ok, String.replace(text, "\n", " ")}
 
       {error, exit_status} ->
         {:error, "pdftotext failed with exit_status #{exit_status} and reason: #{error}"}

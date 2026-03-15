@@ -210,7 +210,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
     text =
       consume_uploaded_entries(socket, :resume, fn %{path: path}, _entry ->
         case(Pdf.extract_text(path)) do
-          {:ok, text} -> {:ok, text}
+          {:ok, text} -> text
           {:error, reason} -> {:error, reason}
         end
       end)
@@ -219,6 +219,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
     # This retrieves the first element in the list, but there could potentially be more.
     # If a user submits two documents then both paths are stored. Then this will have multiple information
     # what happens if extracting_text errors?
+    # This will crash because get_embeddings will be called on {:error, reason} if this fails need to handle.
 
     socket =
       socket
