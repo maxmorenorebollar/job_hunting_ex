@@ -35,6 +35,7 @@ defmodule JobHuntingExWeb.Layouts do
 
   def app(assigns) do
     ~H"""
+    <div class="min-h-screen flex flex-col">
     <header class="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
@@ -64,11 +65,26 @@ defmodule JobHuntingExWeb.Layouts do
       </div>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
+    <main class="flex-1 px-4 py-20 sm:px-6 lg:px-8">
       <div class="mx-auto max-w-2xl space-y-4">
         {render_slot(@inner_block)}
       </div>
     </main>
+    <footer class="border-t border-gray-900 bg-gray-900 shadow-[0px_4px_12px_0px_rgba(0,0,0,0.15)]">
+      <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col items-center justify-between gap-4 sm:flex-row sm:gap-0">
+          <nav class="flex items-center gap-6 sm:ml-auto">
+            <a
+              href="/about"
+              class="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+            >
+              About
+            </a>
+          </nav>
+        </div>
+      </div>
+    </footer>
+    </div>
 
     <.flash_group flash={@flash} />
     """
