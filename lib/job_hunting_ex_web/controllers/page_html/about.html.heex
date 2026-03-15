@@ -1,8 +1,33 @@
 <Layouts.app flash={@flash}>
   <div>
-    <h1 class="text-2xl font-semibold text-gray-900 mb-4">About Job Lens</h1>
-    <p class="text-gray-600 leading-relaxed">
-      This page is under construction. Check back soon for more information about Job Lens.
-    </p>
+    <h1 class="text-2xl font-semibold text-gray-900 mb-4">Frequently Asked Questions</h1>
+    <div class="space-y-3">
+      <details class="group border border-gray-200 rounded-lg overflow-hidden">
+        <summary class="list-none flex items-center justify-between gap-3 cursor-pointer px-4 py-3 text-left font-semibold text-gray-900 hover:bg-gray-50 transition-colors">
+          <span class="text-xl">What is Job Lens?</span>
+          <span class="shrink-0 transition-transform duration-200 group-open:rotate-180">
+            <.icon name="hero-chevron-down" class="w-5 h-5 text-gray-500" />
+          </span>
+        </summary>
+        <div class="px-4 pb-4 pt-1 border-t border-gray-100">
+          <p class="text-gray-600 leading-relaxed">
+            Job Lens is a tool to get richer job results and speed up your job search. We do this by processing job listings using an LLM then running a vector search against your provided resume for better results.
+          </p>
+        </div>
+      </details>
+      <details class="group border border-gray-200 rounded-lg overflow-hidden">
+        <summary class="list-none flex items-center justify-between gap-3 cursor-pointer px-4 py-3 text-left font-semibold text-gray-900 hover:bg-gray-50 transition-colors">
+          <span class="text-xl">How do I get started?</span>
+          <span class="shrink-0 transition-transform duration-200 group-open:rotate-180">
+            <.icon name="hero-chevron-down" class="w-5 h-5 text-gray-500" />
+          </span>
+        </summary>
+        <div class="px-4 pb-4 pt-1 border-t border-gray-100">
+          <p class="text-gray-600 leading-relaxed">
+            Simply upload your resume and enter your search query. Job Lens will find matching listings and rank them by relevance. You can refine your search or try different keywords anytime.
+          </p>
+        </div>
+      </details>
+    </div>
   </div>
 </Layouts.app>
