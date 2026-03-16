@@ -1,0 +1,6 @@
+{
+  "buildAptPackages": ["poppler-utils"],
+  "deploy": {
+    "aptPackages": ["poppler-utils"]
+  }
+}

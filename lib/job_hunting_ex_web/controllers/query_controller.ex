@@ -7,8 +7,6 @@ defmodule JobHuntingExWeb.QueryController do
         render(conn, :show, listings: [])
 
       listings ->
-        IO.inspect(listings)
-        IO.puts("test")
         render(conn, :show, listings: listings)
     end
   end

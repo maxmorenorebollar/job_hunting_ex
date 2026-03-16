@@ -16,14 +16,20 @@ defmodule JobHuntingEx.Queries do
   end
 
   def get_listings(job_id) do
-    query =
-      from l in JobHuntingEx.Jobs.Listing,
-        join: q in JobHuntingEx.Queries.QueryResult,
-        on: q.listing_id == l.id,
-        where: q.job_id == ^job_id,
-        order_by: q.sequence
+    case Ecto.UUID.cast(job_id) do
+      {:ok, uuid} ->
+        query =
+          from l in JobHuntingEx.Jobs.Listing,
+            join: q in JobHuntingEx.Queries.QueryResult,
+            on: q.listing_id == l.id,
+            where: q.job_id == ^uuid,
+            order_by: q.sequence
 
-    Repo.all(query)
+        Repo.all(query)
+
+      :error ->
+        []
+    end
   end
 
   defp create_query_result(params) do
