@@ -10,7 +10,7 @@ defmodule JobHuntingEx.LlmApi do
   end
 
   @spec fetch_job_data(String.t()) :: {:ok, map()} | {:error, String.t()}
-  def(fetch_job_data(job_description)) do
+  def fetch_job_data(job_description) do
     body = %{
       "model" => "openai/gpt-oss-20b",
       "messages" => [

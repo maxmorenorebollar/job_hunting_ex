@@ -1,6 +1,7 @@
 {
   "buildAptPackages": ["poppler-utils"],
   "deploy": {
-    "aptPackages": ["poppler-utils"]
+    "aptPackages": ["poppler-utils"],
+    "startCommand": "/app/_build/prod/rel/job_hunting_ex/bin/job_hunting_ex eval 'JobHuntingEx.Release.migrate()' && /app/_build/prod/rel/job_hunting_ex/bin/job_hunting_ex start"
   }
 }
