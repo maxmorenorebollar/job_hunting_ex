@@ -92,5 +92,8 @@ config :phoenix_live_view,
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
 
-# Http client
+# Need to Remove eventually once, all http requests are using Req direct, and Req.Test to mock
 config :job_hunting_ex, :http_client, Req
+
+# Configure Req.Test to use actual HTTP client on dev
+config :job_hunting_ex, groq_req_options: [auth: {:bearer, System.fetch_env!("GROQ_API_KEY")}]

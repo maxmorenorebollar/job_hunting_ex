@@ -148,9 +148,9 @@ defmodule JobHuntingEx.Queries.Data do
               {:ok, result} ->
                 %{
                   data
-                  | years_of_experience: result["min_years_of_experience"],
-                    skills: result["skills"],
-                    summary: result["summary"]
+                  | years_of_experience: result.min_years_of_experience,
+                    skills: result.skills,
+                    summary: result.summary
                 }
 
               {:error, reason} ->

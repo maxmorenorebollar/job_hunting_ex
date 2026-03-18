@@ -39,3 +39,6 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Use Req.Test to intercept HTTP requests
+config :job_hunting_ex, groq_req_options: [plug: {Req.Test, JobHuntingEx.LlmApi}]

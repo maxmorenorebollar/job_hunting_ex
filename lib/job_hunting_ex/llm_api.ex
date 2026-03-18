@@ -4,12 +4,22 @@ defmodule JobHuntingEx.LlmApi do
   """
 
   alias JobHuntingEx.Error
+  alias JobHuntingEx.LlmApi.GroqResponse
 
-  defp http_client() do
-    Application.get_env(:job_hunting_ex, :http_client)
+  defp normalize_groq_response_error(changeset) do
+    errors_as_map =
+      Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+        Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+          opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+        end)
+      end)
+
+    errors_as_map
+    |> Map.to_list()
+    |> Enum.reduce("", fn {error, message}, acc -> acc <> "#{error} #{message}. " end)
   end
 
-  @spec fetch_job_data(String.t()) :: {:ok, map()} | {:error, String.t()}
+  @spec fetch_job_data(String.t()) :: {:ok, GroqResponse.t()} | {:error, String.t()}
   def fetch_job_data(job_description) do
     body = %{
       "model" => "openai/gpt-oss-20b",
@@ -46,41 +56,32 @@ defmodule JobHuntingEx.LlmApi do
       }
     }
 
+    req_options = [
+      method: :post,
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      json: body
+    ]
+
     request =
-      http_client().post(
-        url: "https://api.groq.com/openai/v1/chat/completions",
-        auth: {:bearer, "#{System.get_env("GROQ_API_KEY")}"},
-        json: body
-      )
+      req_options
+      |> Keyword.merge(Application.get_env(:job_hunting_ex, :groq_req_options))
+      |> Req.request()
 
-    case request do
-      {:ok, res} ->
-        json_content =
-          res.body
-          |> Map.get("choices")
-          |> List.first()
-          |> Map.get("message")
-          |> Map.get("content")
-          |> Jason.decode()
+    with {:ok, %Req.Response{status: 200, body: req_body}} <- request,
+         %{"choices" => [%{"message" => %{"content" => encoded_content}}]} <- req_body,
+         {:ok, decoded_content} <- Jason.decode(encoded_content),
+         changeset <- GroqResponse.changeset(%GroqResponse{}, decoded_content),
+         %Ecto.Changeset{valid?: true} = valid_changeset <- changeset do
+      {:ok, Ecto.Changeset.apply_changes(valid_changeset)}
+    else
+      {:ok, %Req.Response{status: status_code}} ->
+        {:error, "Request failed with status code #{status_code}"}
 
-        # TODO: many points of failure here. Need to handle error and exception being thrown
-        case json_content do
-          {:ok, %{"min_years_of_experience" => -1}} ->
-            {:error, "Minimum years of experience could not be extracted"}
+      %Ecto.Changeset{valid?: false} = invalid_changeset ->
+        {:error, normalize_groq_response_error(invalid_changeset)}
 
-          {:ok,
-           %{
-             "min_years_of_experience" => years,
-             "skills" => skills,
-             "summary" => summary
-           }} ->
-            {:ok,
-             %{
-               "min_years_of_experience" => years,
-               "skills" => skills,
-               "summary" => summary
-             }}
-        end
+      %{} ->
+        {:error, "Groq request body was malformed"}
 
       {:error, err} ->
         {:error, Error.normalize_error(err)}
