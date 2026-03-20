@@ -14,7 +14,6 @@ defmodule JobHuntingEx.Jobs.Listing do
     field :distance, :integer
     field :skills, {:array, :string}
     field :summary, :string
-
     timestamps(type: :utc_datetime)
   end
 

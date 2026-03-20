@@ -6,6 +6,7 @@ defmodule JobHuntingEx.Queries.QueryResult do
     field :job_id, :binary_id
     field :listing_id, :integer
     field :sequence, :integer
+    timestamps(type: :utc_datetime)
   end
 
   def changeset(query_result, params) do

@@ -7,6 +7,8 @@ defmodule JobHuntingEx.Application do
 
   @impl true
   def start(_type, _args) do
+    import Cachex.Spec
+
     children = [
       JobHuntingExWeb.Telemetry,
       JobHuntingEx.Repo,
@@ -17,7 +19,7 @@ defmodule JobHuntingEx.Application do
       # Start to serve requests, typically the last entry
       JobHuntingExWeb.Endpoint,
       {JobHuntingEx.McpClient, transport: {:streamable_http, base_url: "https://mcp.dice.com/"}},
-      {Cachex, [:cache]}
+      {Cachex, name: :cache, warmers: [warmer(module: JobHuntingEx.Cache.Warmer)]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -51,4 +51,15 @@ defmodule JobHuntingEx.Queries do
       {:ok, results}
     end)
   end
+
+  def get_listings_from(days_ago) do
+    cut_off_time = DateTime.shift(DateTime.utc_now(), day: days_ago)
+
+    query =
+      from l in JobHuntingEx.Jobs.Listing,
+        where: l.inserted_at >= ^cut_off_time,
+        select: [l.url, l.title, l.company_name]
+
+    Repo.all(query)
+  end
 end
