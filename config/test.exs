@@ -41,4 +41,6 @@ config :phoenix,
   sort_verified_routes_query_params: true
 
 # Use Req.Test to intercept HTTP requests
-config :job_hunting_ex, groq_req_options: [plug: {Req.Test, JobHuntingEx.LlmApi}]
+config :job_hunting_ex,
+  groq_req_options: [plug: {Req.Test, JobHuntingEx.LlmApi}],
+  openrouter_req_options: [plug: {Req.Test, JobHuntingEx.Embeddings}]

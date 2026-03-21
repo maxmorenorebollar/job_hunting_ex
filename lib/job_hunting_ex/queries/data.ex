@@ -166,7 +166,7 @@ defmodule JobHuntingEx.Queries.Data do
         |> Stream.chunk_every(20)
         |> Task.async_stream(
           fn batch ->
-            case Embeddings.get_embeddings(Enum.map(batch, & &1.description)) do
+            case Embeddings.fetch_embeddings(Enum.map(batch, & &1.description)) do
               {:ok, embeddings} ->
                 Enum.zip(batch, embeddings)
                 |> Enum.map(fn
@@ -203,7 +203,7 @@ defmodule JobHuntingEx.Queries.Data do
       ids when is_list(ids) ->
         uuid = Ecto.UUID.generate()
 
-        with {:ok, embeddings} <- Embeddings.get_embeddings(resume_text),
+        with {:ok, embeddings} <- Embeddings.fetch_embeddings(resume_text),
              {:ok, resume} <- Resumes.create(%{"embeddings" => embeddings}) do
           ordered_listings =
             JobHuntingEx.Repo.all(

@@ -11,6 +11,19 @@ defmodule JobHuntingEx.Error do
     Exception.message(err)
   end
 
+  def normalize_error(%Ecto.Changeset{} = changeset) do
+    errors_as_map =
+      Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+        Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+          opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+        end)
+      end)
+
+    errors_as_map
+    |> Map.to_list()
+    |> Enum.reduce("", fn {error, message}, acc -> acc <> "#{error} #{message}. " end)
+  end
+
   def normalize_error(err) do
     inspect(err)
   end

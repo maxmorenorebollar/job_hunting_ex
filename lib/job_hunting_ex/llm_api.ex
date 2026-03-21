@@ -6,19 +6,6 @@ defmodule JobHuntingEx.LlmApi do
   alias JobHuntingEx.Error
   alias JobHuntingEx.LlmApi.GroqResponse
 
-  defp normalize_groq_response_error(changeset) do
-    errors_as_map =
-      Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-        Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
-          opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
-        end)
-      end)
-
-    errors_as_map
-    |> Map.to_list()
-    |> Enum.reduce("", fn {error, message}, acc -> acc <> "#{error} #{message}. " end)
-  end
-
   @spec fetch_job_data(String.t()) :: {:ok, GroqResponse.t()} | {:error, String.t()}
   def fetch_job_data(job_description) do
     body = %{
@@ -78,7 +65,7 @@ defmodule JobHuntingEx.LlmApi do
         {:error, "Request failed with status code #{status_code}"}
 
       %Ecto.Changeset{valid?: false} = invalid_changeset ->
-        {:error, normalize_groq_response_error(invalid_changeset)}
+        {:error, Error.normalize_error(invalid_changeset)}
 
       %{} ->
         {:error, "Groq request body was malformed"}
