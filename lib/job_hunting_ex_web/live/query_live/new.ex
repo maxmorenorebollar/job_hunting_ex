@@ -32,7 +32,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
 
   def render(%{view: :form} = assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="flex flex-col items-center pt-10">
         <div class="text-center mb-10">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-900 mb-5">
@@ -112,7 +112,8 @@ defmodule JobHuntingExWeb.QueryLive.New do
             </div>
 
             <.button
-              class="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-150 cursor-pointer"
+              variant="primary"
+              class="w-full"
               phx-disable-with="Searching..."
             >
               Search Jobs
@@ -126,7 +127,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
 
   def render(%{view: :show} = assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_scope={@current_scope}>
       <.async_result :let={_job_id} assign={@job_id}>
         <:loading>
           <div class="flex flex-col items-center justify-center py-20">

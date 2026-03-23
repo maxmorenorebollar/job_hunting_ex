@@ -24,8 +24,6 @@ defmodule JobHuntingExWeb.Router do
 
     get "/about", PageController, :about
 
-    live "/", QueryLive.New
-
     # get "/*_", PageController, :to_home
   end
 
@@ -73,6 +71,7 @@ defmodule JobHuntingExWeb.Router do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
+      live "/", QueryLive.New
     end
 
     post "/users/log-in", UserSessionController, :create

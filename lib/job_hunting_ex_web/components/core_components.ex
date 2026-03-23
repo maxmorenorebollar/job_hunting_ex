@@ -94,22 +94,27 @@ defmodule JobHuntingExWeb.CoreComponents do
   slot :inner_block, required: true
 
   def button(%{rest: rest} = assigns) do
-    variants = %{"primary" => "btn-primary", nil => "btn-primary btn-soft"}
+    variants = %{
+      "primary" => "bg-gray-900 hover:bg-gray-700 text-white",
+      nil => "bg-gray-100 hover:bg-gray-200 text-gray-900"
+    }
 
     assigns =
-      assign_new(assigns, :class, fn ->
-        ["btn", Map.fetch!(variants, assigns[:variant])]
-      end)
+      assign(assigns, :button_class, [
+        "font-medium py-2.5 px-4 rounded-lg transition-colors duration-150 cursor-pointer",
+        Map.fetch!(variants, assigns[:variant]),
+        assigns[:class]
+      ])
 
     if rest[:href] || rest[:navigate] || rest[:patch] do
       ~H"""
-      <.link class={@class} {@rest}>
+      <.link class={@button_class} {@rest}>
         {render_slot(@inner_block)}
       </.link>
       """
     else
       ~H"""
-      <button class={@class} {@rest}>
+      <button class={@button_class} {@rest}>
         {render_slot(@inner_block)}
       </button>
       """
