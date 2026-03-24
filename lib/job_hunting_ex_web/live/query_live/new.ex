@@ -55,14 +55,14 @@ defmodule JobHuntingExWeb.QueryLive.New do
                 field={@form[:keyword]}
                 type="text"
                 label="Keyword"
-                placeholder="e.g. Elixir Developer, Product Manager"
+                placeholder="e.g. Elixir Developer, Software Engineer"
               />
               <div class="grid grid-cols-2 gap-4">
                 <.input
                   field={@form[:location]}
                   type="text"
                   label="Location"
-                  placeholder="e.g. San Francisco, CA"
+                  placeholder="e.g. San Jose, CA"
                 />
                 <.input
                   field={@form[:radius]}
