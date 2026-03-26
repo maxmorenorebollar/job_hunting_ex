@@ -59,7 +59,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
           </p>
         </div>
 
-        <.form class="grid grid-cols-6 gap-x-3 gap-y-1" for={@form} id="search-form" phx-submit="add">
+        <.form class="grid grid-cols-6 gap-x-3 gap-y-1" for={@form} id="search-form" phx-submit="save">
           <div class="col-span-3">
             <.input
               field={@form[:keyword]}
@@ -100,15 +100,17 @@ defmodule JobHuntingExWeb.UserLive.Show do
               placeholder="e.g. 15"
             />
           </div>
-          <div class="col-span-2">
+          <div class="col-span-2 flex items-end">
             <.input
               field={@form[:remote?]}
               type="checkbox"
               label="Include remote jobs"
             />
+          </div>
+          <div class="col-span-2">
             <.button
               variant="primary"
-              class="mt-2 w-full"
+              class="text-sm"
               phx-disable-with="Saving..."
             >
               Save Query
@@ -119,7 +121,9 @@ defmodule JobHuntingExWeb.UserLive.Show do
         <div class="space-y-3">
           <h2 class="text-lg font-semibold">Your Queries</h2>
           <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            <.card :for={query <- @saved_queries} query={query} />
+            <%= for query <- @saved_queries do %>
+              <.card query={query} />
+            <% end %>
           </div>
         </div>
       </div>
@@ -139,7 +143,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
         </div>
         <p class="mt-1 text-sm text-gray-600">
           {@query.location}
-          <span :if={@query.radius}> &middot; {to_string(@query.radius)} mi</span>
+          <span :if={@query.radius}> &middot;       {to_string(@query.radius)} mi</span>
         </p>
         <div class="mt-2 flex flex-wrap gap-1.5">
           <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
@@ -156,7 +160,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
       <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
         <div class="text-xs text-gray-500">
           <span>{@query.result_count} results</span>
-          <span> &middot; {@query.last_run}</span>
+          <span> &middot;       {@query.last_run}</span>
         </div>
         <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
           View Results
