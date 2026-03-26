@@ -19,12 +19,6 @@ defmodule JobHuntingExWeb.Router do
 
   scope "/", JobHuntingExWeb do
     pipe_through :browser
-
-    get "/query/:id", QueryController, :show
-
-    get "/about", PageController, :about
-
-    # get "/*_", PageController, :to_home
   end
 
   # Other scopes may use custom stacks.
@@ -73,6 +67,9 @@ defmodule JobHuntingExWeb.Router do
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
       live "/", QueryLive.New
+      live "/query/:id", QueryLive.Show
+
+      get "/about", PageController, :about
     end
 
     post "/users/log-in", UserSessionController, :create
