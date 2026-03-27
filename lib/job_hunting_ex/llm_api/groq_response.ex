@@ -6,6 +6,13 @@ defmodule JobHuntingEx.LlmApi.GroqResponse do
 
   alias Ecto.Changeset
 
+  @type t :: %__MODULE__{
+          min_years_of_experience: integer(),
+          skills: [String.t()],
+          summary: String.t()
+        }
+
+  @primary_key false
   embedded_schema do
     field :min_years_of_experience, :integer
     field :skills, {:array, :string}
