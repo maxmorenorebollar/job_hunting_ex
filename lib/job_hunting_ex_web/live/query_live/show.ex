@@ -3,8 +3,14 @@ defmodule JobHuntingExWeb.QueryLive.Show do
   alias JobHuntingEx.Queries
 
   def mount(params, _session, socket) do
-    job_id = params["id"]
-    listings = Queries.get_listings(job_id)
+    pretty_query_id = params["id"]
+    query_id = Queries.get_query_from_pretty_query_id(pretty_query_id)
+
+    listings =
+      case query_id do
+        nil -> []
+        query_id -> Queries.get_listings(query_id.id)
+      end
 
     socket =
       socket

@@ -1,8 +1,8 @@
-defmodule JobHuntingEx.Queries.Query do
+defmodule JobHuntingEx.Queries.UserQuery do
   use Ecto.Schema
   alias Ecto.Changeset
 
-  schema "user_query" do
+  schema "user_queries" do
     field :keyword, :string
     field :location, :string
     field :radius, :integer
@@ -10,6 +10,9 @@ defmodule JobHuntingEx.Queries.Query do
     field :minimum_years_of_experience, :integer
     field :maximum_years_of_experience, :integer
     field :remote?, :boolean
+    field :pretty_query_id, :string
+
+    timestamps(type: :utc_datetime)
   end
 
   def changeset(query, params \\ %{}) do
@@ -21,7 +24,8 @@ defmodule JobHuntingEx.Queries.Query do
       :workplace_types,
       :minimum_years_of_experience,
       :maximum_years_of_experience,
-      :remote?
+      :remote?,
+      :pretty_query_id
     ])
     |> Changeset.validate_required([
       :keyword,
@@ -30,7 +34,8 @@ defmodule JobHuntingEx.Queries.Query do
       :workplace_types,
       :minimum_years_of_experience,
       :maximum_years_of_experience,
-      :remote?
+      :remote?,
+      :pretty_query_id
     ])
   end
 end

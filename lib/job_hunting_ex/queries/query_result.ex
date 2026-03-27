@@ -3,7 +3,7 @@ defmodule JobHuntingEx.Queries.QueryResult do
   import Ecto.Changeset
 
   schema "query_results" do
-    field :job_id, :binary_id
+    field :query_id, :integer
     field :listing_id, :integer
     field :sequence, :integer
     timestamps(type: :utc_datetime)
@@ -11,7 +11,7 @@ defmodule JobHuntingEx.Queries.QueryResult do
 
   def changeset(query_result, params) do
     query_result
-    |> cast(params, [:job_id, :listing_id, :sequence])
-    |> validate_required([:job_id, :listing_id, :sequence])
+    |> cast(params, [:query_id, :listing_id, :sequence])
+    |> validate_required([:query_id, :listing_id, :sequence])
   end
 end

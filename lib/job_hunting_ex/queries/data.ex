@@ -13,8 +13,7 @@ defmodule JobHuntingEx.Queries.Data do
   alias JobHuntingEx.LlmApi
   alias JobHuntingEx.Scraper
 
-  import Ecto.Query
-  import Pgvector.Ecto.Query
+  @id_size 8
 
   defstruct [
     :url,
@@ -46,6 +45,7 @@ defmodule JobHuntingEx.Queries.Data do
 
       {:ok, jobs_with_data}
     else
+      reason -> {:error, reason}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -118,10 +118,20 @@ defmodule JobHuntingEx.Queries.Data do
     {min_yoe, _remainder} = Integer.parse(params["minimum_years_of_experience"])
     {max_yoe, _remainder} = Integer.parse(params["maximum_years_of_experience"])
 
-    params_merged = normalize_query_params(params)
+    mcp_params = normalize_query_params(params)
+    pretty_query_id = Nanoid.generate(@id_size)
 
-    listing_ids =
-      with {processed, need_to_process} when is_list(processed) <- get_jobs(params_merged) do
+    query_params =
+      mcp_params
+      |> Map.put("pretty_query_id", pretty_query_id)
+      |> Map.put("minimum_years_of_experience", min_yoe)
+      |> Map.put("maximum_years_of_experience", max_yoe)
+      |> Map.put("remote?", params["remote?"])
+
+    {:ok, user_query} = JobHuntingEx.Queries.create_user_query(query_params)
+
+    listing_urls =
+      with {processed, need_to_process} when is_list(processed) <- get_jobs(mcp_params) do
         need_to_process
         |> Task.async_stream(
           fn data ->
@@ -192,42 +202,32 @@ defmodule JobHuntingEx.Queries.Data do
         end
       else
         {:error, err} ->
-          Logger.error("Could not query Dice MCP", "reason: #{inspect(err)}")
+          Logger.error("Could not query Dice MCP, reason: #{inspect(err)}")
           {:error, "Failled on start"}
       end
 
-    case listing_ids do
-      {:error, reason} ->
-        {:error, reason}
-
-      ids when is_list(ids) ->
-        uuid = Ecto.UUID.generate()
-
+    case listing_urls do
+      urls when is_list(urls) ->
         with {:ok, embeddings} <- Embeddings.fetch_embeddings(resume_text),
              {:ok, resume} <- Resumes.create(%{"embeddings" => embeddings}) do
           ordered_listings =
-            JobHuntingEx.Repo.all(
-              from i in Listing,
-                where:
-                  i.url in ^ids and i.years_of_experience >= ^min_yoe and
-                    i.years_of_experience <= ^max_yoe,
-                order_by: cosine_distance(i.embeddings, ^resume.embeddings)
-            )
+            JobHuntingEx.Queries.cosine_search(resume, urls, min_yoe, max_yoe)
 
           query_results =
             Enum.with_index(ordered_listings, fn listing, index ->
-              %{job_id: uuid, listing_id: listing.id, sequence: index}
+              %{query_id: user_query.id, listing_id: listing.id, sequence: index}
             end)
 
-          # need to refactor this
-
           case JobHuntingEx.Queries.create_query_results(query_results) do
-            {:ok, _results} -> {:ok, uuid}
+            {:ok, _results} -> {:ok, pretty_query_id}
             {:error, reason} -> {:error, reason}
           end
         else
           {:error, reason} -> {:error, reason}
         end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 end

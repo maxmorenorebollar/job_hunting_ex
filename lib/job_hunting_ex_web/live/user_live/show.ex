@@ -2,7 +2,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
   use JobHuntingExWeb, :live_view
   use Phoenix.Component
 
-  alias JobHuntingEx.Queries.Query
+  alias JobHuntingEx.Queries.UserQuery
 
   @fake_queries [
     %{
@@ -41,7 +41,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
   def mount(_params, _sessions, socket) do
     socket =
       socket
-      |> assign(:form, to_form(Query.changeset(%Query{})))
+      |> assign(:form, to_form(UserQuery.changeset(%UserQuery{})))
       |> assign(:saved_queries, @fake_queries)
 
     {:ok, socket}
@@ -143,7 +143,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
         </div>
         <p class="mt-1 text-sm text-gray-600">
           {@query.location}
-          <span :if={@query.radius}> &middot;        {to_string(@query.radius)} mi</span>
+          <span :if={@query.radius}> &middot;          {to_string(@query.radius)} mi</span>
         </p>
         <div class="mt-2 flex flex-wrap gap-1.5">
           <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
@@ -160,7 +160,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
       <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
         <div class="text-xs text-gray-500">
           <span>{@query.result_count} results</span>
-          <span> &middot;        {@query.last_run}</span>
+          <span> &middot;          {@query.last_run}</span>
         </div>
         <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
           View Results

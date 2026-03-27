@@ -3,33 +3,28 @@ defmodule JobHuntingEx.Queries do
   Queries Context
   """
   import Ecto.Query
+  import Pgvector.Ecto.Query
 
   alias JobHuntingEx.Repo
 
-  def get_listing_ids(job_id) do
+  def get_listing_ids(query_id) do
     query =
       from q in JobHuntingEx.Queries.QueryResult,
-        where: q.job_id == ^job_id,
+        where: q.query_id == ^query_id,
         order_by: q.sequence
 
     Repo.all(query)
   end
 
-  def get_listings(job_id) do
-    case Ecto.UUID.cast(job_id) do
-      {:ok, uuid} ->
-        query =
-          from l in JobHuntingEx.Jobs.Listing,
-            join: q in JobHuntingEx.Queries.QueryResult,
-            on: q.listing_id == l.id,
-            where: q.job_id == ^uuid,
-            order_by: q.sequence
+  def get_listings(query_id) do
+    query =
+      from l in JobHuntingEx.Jobs.Listing,
+        join: q in JobHuntingEx.Queries.QueryResult,
+        on: q.listing_id == l.id,
+        where: q.query_id == ^query_id,
+        order_by: q.sequence
 
-        Repo.all(query)
-
-      :error ->
-        []
-    end
+    Repo.all(query)
   end
 
   defp create_query_result(params) do
@@ -61,5 +56,30 @@ defmodule JobHuntingEx.Queries do
         select: [l.url, l.title, l.company_name]
 
     Repo.all(query)
+  end
+
+  def cosine_search(resume, listing_urls, min_yoe, max_yoe) do
+    query =
+      from i in JobHuntingEx.Jobs.Listing,
+        where:
+          i.url in ^listing_urls and i.years_of_experience >= ^min_yoe and
+            i.years_of_experience <= ^max_yoe,
+        order_by: cosine_distance(i.embeddings, ^resume.embeddings)
+
+    Repo.all(query)
+  end
+
+  def create_user_query(params) do
+    %JobHuntingEx.Queries.UserQuery{}
+    |> JobHuntingEx.Queries.UserQuery.changeset(params)
+    |> Repo.insert()
+  end
+
+  def get_query_from_pretty_query_id(pretty_query_id) do
+    query =
+      from i in JobHuntingEx.Queries.UserQuery,
+        where: i.pretty_query_id == ^pretty_query_id
+
+    Repo.one(query)
   end
 end

@@ -3,13 +3,13 @@ defmodule JobHuntingExWeb.QueryLive.New do
 
   require Logger
 
-  alias JobHuntingEx.Queries.Query
+  alias JobHuntingEx.Queries.UserQuery
   alias JobHuntingEx.Queries.Data
   alias Phoenix.LiveView.AsyncResult
   alias JobHuntingEx.Pdf
 
   def mount(_params, _session, socket) do
-    changeset = Query.changeset(%Query{})
+    changeset = UserQuery.changeset(%UserQuery{})
 
     socket =
       socket
@@ -176,9 +176,9 @@ defmodule JobHuntingExWeb.QueryLive.New do
   defp upload_error_to_string(:too_many_files), do: "Too many files selected"
   defp upload_error_to_string(_), do: "Upload failed"
 
-  def handle_event("validate", %{"query" => query_params}, socket) do
+  def handle_event("validate", %{"user_query" => query_params}, socket) do
     changeset =
-      Query.changeset(%Query{}, query_params)
+      UserQuery.changeset(%UserQuery{}, query_params)
       |> Map.put(:action, :validate)
 
     socket = assign(socket, form: to_form(changeset))
@@ -210,7 +210,7 @@ defmodule JobHuntingExWeb.QueryLive.New do
     {:noreply, socket}
   end
 
-  def handle_event("search", %{"query" => query_params}, socket) do
+  def handle_event("search", %{"user_query" => query_params}, socket) do
     file_upload =
       consume_uploaded_entries(socket, :resume, fn %{path: path}, _entry ->
         case Pdf.extract_text(path) do
