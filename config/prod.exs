@@ -25,5 +25,10 @@ config :logger, level: :info
 # Http client
 config :job_hunting_ex, :http_client, Req
 
+# Configure Req to use actual HTTP client on dev
+config :job_hunting_ex,
+  groq_req_options: [auth: {:bearer, System.fetch_env!("GROQ_API_KEY")}],
+  openrouter_req_options: [auth: {:bearer, System.fetch_env!("OPENROUTER_API_KEY")}]
+
 # Runtime production configuration, including reading
-# of environment variables, is done on config/runtime.exs.
+# of environment variables, is done on config/runtime.exs
