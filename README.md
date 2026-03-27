@@ -3,7 +3,7 @@
 A website to help get better job listings, and help automate some of the job hunting process.
 Currently only supports job listings from dice.
 
-# Visit the site here! [Job Lens](https://jobhuntingex-production.up.railway.app)
+# Visit the site here! [Job Lens](https://www.joblens.fyi)
 
 # Site Images
 ![home](/docs/home.png)
