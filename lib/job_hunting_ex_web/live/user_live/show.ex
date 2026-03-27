@@ -120,7 +120,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
         <div class="space-y-3">
           <h2 class="text-lg font-semibold">Your Queries</h2>
-          <div class="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <div class="grid gap-4 grid-cols-1">
             <%= for query <- @saved_queries do %>
               <.card query={query} />
             <% end %>
@@ -143,7 +143,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
         </div>
         <p class="mt-1 text-sm text-gray-600">
           {@query.location}
-          <span :if={@query.radius}> &middot;       {to_string(@query.radius)} mi</span>
+          <span :if={@query.radius}> &middot;        {to_string(@query.radius)} mi</span>
         </p>
         <div class="mt-2 flex flex-wrap gap-1.5">
           <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
@@ -160,7 +160,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
       <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
         <div class="text-xs text-gray-500">
           <span>{@query.result_count} results</span>
-          <span> &middot;       {@query.last_run}</span>
+          <span> &middot;        {@query.last_run}</span>
         </div>
         <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
           View Results
