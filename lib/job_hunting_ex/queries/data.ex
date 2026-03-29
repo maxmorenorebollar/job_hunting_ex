@@ -7,7 +7,6 @@ defmodule JobHuntingEx.Queries.Data do
 
   alias JobHuntingEx.Queries.Data
   alias JobHuntingEx.Resumes.Resumes
-  alias JobHuntingEx.Jobs.Listing
   alias JobHuntingEx.Cache
   alias JobHuntingEx.Embeddings
   alias JobHuntingEx.LlmApi
@@ -45,7 +44,6 @@ defmodule JobHuntingEx.Queries.Data do
 
       {:ok, jobs_with_data}
     else
-      reason -> {:error, reason}
       {:error, reason} -> {:error, reason}
     end
   end

@@ -43,6 +43,12 @@ defmodule JobHuntingExWeb.UserLive.Show do
       socket
       |> assign(:form, to_form(UserQuery.changeset(%UserQuery{})))
       |> assign(:saved_queries, @fake_queries)
+      |> allow_upload(:resume,
+        accept: ~w(.pdf),
+        max_entries: 1,
+        auto_upload: true,
+        progress: &handle_progress/3
+      )
 
     {:ok, socket}
   end
@@ -107,6 +113,25 @@ defmodule JobHuntingExWeb.UserLive.Show do
               label="Include remote jobs"
             />
           </div>
+          <label class={[
+            "inline-flex items-center justify-center w-full px-4 py-2.5 rounded-lg transition-colors duration-150 border",
+            if(resume_uploading?(@uploads.resume),
+              do: "text-zinc-400 border-gray-200 cursor-wait",
+              else: "text-zinc-500 border-gray-300 cursor-pointer"
+            )
+          ]}>
+            <%= cond do %>
+              <% resume_uploading?(@uploads.resume) -> %>
+                <div class="w-4 h-4 mr-2 rounded-full border-2 border-gray-200 border-t-gray-600 animate-spin" />
+                Uploading...
+              <% not Enum.empty?(@uploads.resume.entries) -> %>
+                <.icon name="hero-document-check" class="w-5 h-5 mr-2 text-emerald-500" />
+                {hd(@uploads.resume.entries).client_name}
+              <% true -> %>
+                <.icon name="hero-document-arrow-up" class="w-5 h-5 mr-2" /> Upload Resume (PDF)
+            <% end %>
+            <.live_file_input upload={@uploads.resume} class="hidden" />
+          </label>
           <div class="col-span-2">
             <.button
               variant="primary"
@@ -143,7 +168,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
         </div>
         <p class="mt-1 text-sm text-gray-600">
           {@query.location}
-          <span :if={@query.radius}> &middot;          {to_string(@query.radius)} mi</span>
+          <span :if={@query.radius}> &middot;{to_string(@query.radius)} mi</span>
         </p>
         <div class="mt-2 flex flex-wrap gap-1.5">
           <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
@@ -160,7 +185,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
       <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
         <div class="text-xs text-gray-500">
           <span>{@query.result_count} results</span>
-          <span> &middot;          {@query.last_run}</span>
+          <span> &middot;{@query.last_run}</span>
         </div>
         <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
           View Results
@@ -168,5 +193,27 @@ defmodule JobHuntingExWeb.UserLive.Show do
       </div>
     </div>
     """
+  end
+
+  defp resume_uploading?(upload_config) do
+    Enum.any?(upload_config.entries, fn entry ->
+      entry.progress > 0 and not entry.done?
+    end)
+  end
+
+  defp handle_progress(:resume, entry, socket) do
+    if entry.done? do
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp upload_error_to_string(:too_large), do: "File is too large"
+  defp upload_error_to_string(:not_accepted), do: "Invalid file type. Please upload a PDF"
+  defp upload_error_to_string(:too_many_files), do: "Too many files selected"
+  defp upload_error_to_string(_), do: "Upload failed"
+
+  def handle_event("save", %{"user_query" => query_params}, socket) do
   end
 end

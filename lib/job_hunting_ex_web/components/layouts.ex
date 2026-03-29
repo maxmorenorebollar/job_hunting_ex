@@ -5,6 +5,8 @@ defmodule JobHuntingExWeb.Layouts do
   """
   use JobHuntingExWeb, :html
 
+  alias Phoenix.LiveView.JS
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -47,47 +49,11 @@ defmodule JobHuntingExWeb.Layouts do
                 <.icon name="hero-magnifying-glass" class="w-5 h-5" /> Job Lens
               </.link>
             </div>
-            <nav class="flex items-center space-x-8">
-              <.link
-                navigate={~p"/"}
-                class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Home
-              </.link>
-              <%= if @current_scope do %>
-                <span class="text-sm font-medium text-gray-600">
-                  {@current_scope.user.email}
-                </span>
-                <.link
-                  navigate={~p"/users/settings"}
-                  class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Settings
-                </.link>
-                <.link
-                  href={~p"/users/log-out"}
-                  method="delete"
-                  class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Log out
-                </.link>
-              <% else %>
-                <.link
-                  navigate={~p"/users/register"}
-                  class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Register
-                </.link>
-                <.link
-                  navigate={~p"/users/log-in"}
-                  class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  Log in
-                </.link>
-              <% end %>
-            </nav>
+            <.hamburger_button />
+            <.top_nav_content current_scope={@current_scope} />
           </div>
         </div>
+        <.hamburger_panel current_scope={@current_scope} />
       </header>
 
       <main class="flex-1 px-4 py-20 sm:px-6 lg:px-8">
@@ -113,6 +79,148 @@ defmodule JobHuntingExWeb.Layouts do
 
     <.flash_group flash={@flash} />
     """
+  end
+
+  defp top_nav_content(assigns) do
+    ~H"""
+    <nav class="hidden md:flex md:items-center md:space-x-8">
+      <.link
+        navigate={~p"/"}
+        class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+      >
+        Home
+      </.link>
+      <%= if @current_scope do %>
+        <span class="text-sm font-medium text-gray-600">
+          {@current_scope.user.email}
+        </span>
+        <.link
+          navigate={~p"/users/queries"}
+          class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          Queries
+        </.link>
+        <.link
+          navigate={~p"/users/settings"}
+          class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          Settings
+        </.link>
+        <.link
+          href={~p"/users/log-out"}
+          method="delete"
+          class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          Log out
+        </.link>
+      <% else %>
+        <.link
+          navigate={~p"/users/register"}
+          class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          Register
+        </.link>
+        <.link
+          navigate={~p"/users/log-in"}
+          class="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          Log in
+        </.link>
+      <% end %>
+    </nav>
+    """
+  end
+
+  defp hamburger_button(assigns) do
+    ~H"""
+    <div class="md:hidden">
+      <button phx-click={show_hamburger()} class="p-2 rounded hover:bg-gray-100">
+        <.icon name="hero-bars-3" class="h-6 w-6" />
+      </button>
+    </div>
+    """
+  end
+
+  defp hamburger_panel(assigns) do
+    ~H"""
+    <div id="hamburger-container" class="hidden relative z-50">
+      <div id="hamburger-backdrop" class="fixed inset-0 bg-zinc-50/90 transition-opacity"></div>
+      <nav
+        id="hamburger-content"
+        class="fixed top-0 left-0 bottom-0 flex flex-col grow justify-between w-3/4 max-w-sm py-6 bg-white border-r overflow-y-auto"
+      >
+        <div>
+          <div class="flex items-center mb-4 place-content-between mx-4 border-b border-gray-200 pb-4">
+            <.link
+              navigate={~p"/"}
+              class="inline-flex items-center gap-2 text-xl font-semibold text-gray-900 tracking-tight"
+            >
+              <.icon name="hero-magnifying-glass" class="w-5 h-5" /> Job Lens
+            </.link>
+            <button phx-click={hide_hamburger()} class="p-2 rounded hover:bg-gray-100">
+              <.icon name="hero-x-mark" class="h-6 w-6" />
+            </button>
+          </div>
+          <ul>
+            <li class="block px-6 py-2 text-sm font-semibold hover:bg-gray-200">
+              <.link navigate={~p"/"}>Home</.link>
+            </li>
+            <%= if @current_scope do %>
+              <li class="block px-6 py-2 text-sm font-semibold hover:bg-gray-200">
+                <.link navigate={~p"/users/queries"}>Queries</.link>
+              </li>
+              <li class="block px-6 py-2 text-sm font-semibold hover:bg-gray-200">
+                <.link navigate={~p"/users/settings"}>Settings</.link>
+              </li>
+              <li class="block px-6 py-2 text-sm font-semibold hover:bg-gray-200">
+                <.link href={~p"/users/log-out"} method="delete">Log out</.link>
+              </li>
+            <% else %>
+              <li class="block px-6 py-2 text-sm font-semibold hover:bg-gray-200">
+                <.link navigate={~p"/users/register"}>Register</.link>
+              </li>
+              <li class="block px-6 py-2 text-sm font-semibold hover:bg-gray-200">
+                <.link navigate={~p"/users/log-in"}>Log in</.link>
+              </li>
+            <% end %>
+          </ul>
+        </div>
+      </nav>
+    </div>
+    """
+  end
+
+  defp show_hamburger(js \\ %JS{}) do
+    js
+    |> JS.show(
+      to: "#hamburger-content",
+      transition:
+        {"transition-all transform ease-in-out duration-300", "-translate-x-3/4", "translate-x-0"},
+      time: 300,
+      display: "flex"
+    )
+    |> JS.show(
+      to: "#hamburger-backdrop",
+      transition:
+        {"transition-all transform ease-in-out duration-300", "opacity-0", "opacity-100"}
+    )
+    |> JS.show(to: "#hamburger-container", time: 300)
+    |> JS.add_class("overflow-hidden", to: "body")
+  end
+
+  defp hide_hamburger(js \\ %JS{}) do
+    js
+    |> JS.hide(
+      to: "#hamburger-backdrop",
+      transition: {"transition-all transform ease-in duration-200", "opacity-100", "opacity-0"}
+    )
+    |> JS.hide(
+      to: "#hamburger-content",
+      transition:
+        {"transition-all transform ease-in duration-200", "translate-x-0", "-translate-x-3/4"}
+    )
+    |> JS.hide(to: "#hamburger-container", transition: {"block", "block", "hidden"})
+    |> JS.remove_class("overflow-hidden", to: "body")
   end
 
   @doc """
