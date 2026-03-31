@@ -47,3 +47,6 @@ config :phoenix,
 config :job_hunting_ex,
   groq_req_options: [plug: {Req.Test, JobHuntingEx.LlmApi}],
   openrouter_req_options: [plug: {Req.Test, JobHuntingEx.Embeddings}]
+
+# Config Oban
+config :job_hunting_ex, Oban, testing: :manual

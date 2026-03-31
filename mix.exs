@@ -76,9 +76,9 @@ defmodule JobHuntingEx.MixProject do
       {:anubis_mcp, "~> 0.17"},
       {:floki, "~> 0.38.0"},
       {:pgvector, "~> 0.3.0"},
-      {:tidewave, "~> 0.5", only: :dev},
       {:cachex, "~> 4.0"},
       {:nanoid, "~> 2.1.0"},
+      {:oban, "~> 2.19"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
