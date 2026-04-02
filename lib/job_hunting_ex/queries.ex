@@ -7,6 +7,8 @@ defmodule JobHuntingEx.Queries do
 
   alias JobHuntingEx.Repo
 
+  @pretty_id_size 8
+
   def get_listing_ids(query_id) do
     query =
       from q in JobHuntingEx.Queries.QueryResult,
@@ -81,5 +83,23 @@ defmodule JobHuntingEx.Queries do
         where: i.pretty_query_id == ^pretty_query_id
 
     Repo.one(query)
+  end
+
+  def save_user_query(params, user_id, resume_text) do
+    params =
+      params
+      |> Map.put("pretty_query_id", Nanoid.generate(@pretty_id_size))
+      |> Map.put("user_id", user_id)
+      |> Map.put("resume_text", resume_text)
+
+    record =
+      %JobHuntingEx.Queries.UserQuery{}
+      |> JobHuntingEx.Queries.UserQuery.changeset(params)
+      |> Repo.insert()
+
+    case record do
+      {:ok, schema} -> {:ok, schema.id}
+      {:error, _changeset} -> {:error, "insertion failed"}
+    end
   end
 end

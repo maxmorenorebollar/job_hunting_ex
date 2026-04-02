@@ -2,38 +2,42 @@ defmodule JobHuntingExWeb.UserLive.Show do
   use JobHuntingExWeb, :live_view
   use Phoenix.Component
 
+  require Logger
+
   alias JobHuntingEx.Queries.UserQuery
+  alias JobHuntingEx.Pdf
+  alias JobHuntingEx.Error
 
   @fake_queries [
     %{
-      keyword: "Elixir Developer",
-      location: "San Jose, CA",
-      radius: 25,
-      min_exp: 2,
-      max_exp: 8,
-      remote: true,
-      result_count: 14,
-      last_run: "Mar 24, 2026"
+      "keyword" => "Elixir Developer",
+      "location" => "San Jose, CA",
+      "radius" => 25,
+      "minimum_years_of_experience" => 2,
+      "maximum_years_of_experience" => 8,
+      "remote?" => true,
+      "result_count" => 14,
+      "last_run" => "Mar 24, 2026"
     },
     %{
-      keyword: "Software Engineer",
-      location: "San Francisco, CA",
-      radius: 10,
-      min_exp: 1,
-      max_exp: 5,
-      remote: false,
-      result_count: 23,
-      last_run: "Mar 24, 2026"
+      "keyword" => "Software Engineer",
+      "location" => "San Francisco, CA",
+      "radius" => 10,
+      "minimum_years_of_experience" => 1,
+      "maximum_years_of_experience" => 5,
+      "remote?" => false,
+      "result_count" => 23,
+      "last_run" => "Mar 24, 2026"
     },
     %{
-      keyword: "Backend Engineer",
-      location: "Remote",
-      radius: nil,
-      min_exp: 3,
-      max_exp: 10,
-      remote: true,
-      result_count: 7,
-      last_run: "Mar 23, 2026"
+      "keyword" => "Backend Engineer",
+      "location" => "Remote",
+      "radius" => nil,
+      "minimum_years_of_experience" => 3,
+      "maximum_years_of_experience" => 10,
+      "remote?" => true,
+      "result_count" => 7,
+      "last_run" => "Mar 23, 2026"
     }
   ]
 
@@ -65,7 +69,13 @@ defmodule JobHuntingExWeb.UserLive.Show do
           </p>
         </div>
 
-        <.form class="grid grid-cols-6 gap-x-3 gap-y-1" for={@form} id="search-form" phx-submit="save">
+        <.form
+          class="grid grid-cols-6 gap-x-3 gap-y-1"
+          for={@form}
+          id="search-form"
+          phx-change="validate"
+          phx-submit="save"
+        >
           <div class="col-span-3">
             <.input
               field={@form[:keyword]}
@@ -161,21 +171,21 @@ defmodule JobHuntingExWeb.UserLive.Show do
     <div class="flex flex-col justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div>
         <div class="flex items-start justify-between">
-          <h3 class="text-base font-semibold text-gray-900">{@query.keyword}</h3>
+          <h3 class="text-base font-semibold text-gray-900">{@query["keyword"]}</h3>
           <button class="text-gray-400 hover:text-red-500 cursor-pointer" title="Delete query">
             <.icon name="hero-x-mark" class="h-4 w-4" />
           </button>
         </div>
         <p class="mt-1 text-sm text-gray-600">
-          {@query.location}
-          <span :if={@query.radius}> &middot;{to_string(@query.radius)} mi</span>
+          {@query["location"]}
+          <span :if={@query["radius"]}> &middot;{to_string(@query["radius"])} mi</span>
         </p>
         <div class="mt-2 flex flex-wrap gap-1.5">
           <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-            {@query.min_exp}-{@query.max_exp} yrs exp
+            {@query["minimum_years_of_experience"]}-{@query["maximum_years_of_experience"]} yrs exp
           </span>
           <span
-            :if={@query.remote}
+            :if={@query["remote?"]}
             class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700"
           >
             Remote
@@ -184,8 +194,8 @@ defmodule JobHuntingExWeb.UserLive.Show do
       </div>
       <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
         <div class="text-xs text-gray-500">
-          <span>{@query.result_count} results</span>
-          <span> &middot;{@query.last_run}</span>
+          <span>{@query["result_count"]} results</span>
+          <span> &middot;{@query["last_run"]}</span>
         </div>
         <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
           View Results
@@ -214,6 +224,137 @@ defmodule JobHuntingExWeb.UserLive.Show do
   defp upload_error_to_string(:too_many_files), do: "Too many files selected"
   defp upload_error_to_string(_), do: "Upload failed"
 
-  def handle_event("save", %{"user_query" => query_params}, socket) do
+  @impl true
+  def handle_event("validate", %{"user_query" => query_params}, socket) do
+    changeset =
+      UserQuery.changeset(%UserQuery{}, query_params)
+
+    socket = assign(socket, form: to_form(changeset))
+
+    {socket, errors} =
+      Enum.reduce(socket.assigns.uploads.resume.entries, {socket, []}, fn entry, {sock, errs} ->
+        entry_errors = upload_errors(sock.assigns.uploads.resume, entry)
+
+        if entry_errors != [] do
+          {cancel_upload(sock, :resume, entry.ref),
+           errs ++ Enum.map(entry_errors, &upload_error_to_string/1)}
+        else
+          {sock, errs}
+        end
+      end)
+
+    upload_config_errors = upload_errors(socket.assigns.uploads.resume)
+
+    all_errors =
+      errors ++ Enum.map(upload_config_errors, &upload_error_to_string/1)
+
+    socket =
+      if all_errors != [] do
+        put_flash(socket, :error, Enum.join(Enum.uniq(all_errors), ". "))
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
+
+  @impl true
+  def handle_event("save", %{"user_query" => query_params}, socket) do
+    # TODO: make the query params backed by an embedded schema and seperate it from the table backed version
+    # That way we can validate the the form without adding the extra information needed to write to the
+    # user_query table
+    user_query = query_params
+
+    user_query =
+      case user_query["remote?"] do
+        true -> Map.put(user_query, "workplace_types", ["Hybrid", "On-Site", "Remote"])
+        false -> Map.put(user_query, "workplace_types", ["Hybrid", "On-Site"])
+      end
+
+    user_id = socket.assigns.current_scope.user.id
+
+    with :ok <- length_equal_to_one(socket.assigns.uploads.resume.entries),
+         {:ok, resume_text} <- file_upload(socket),
+         {:ok, schema} <-
+           JobHuntingEx.Queries.save_user_query(user_query, user_id, resume_text) do
+      IO.puts("Query Saved!")
+      saved_queries = [query_params] ++ socket.assigns.saved_queries
+      query_id = schema.id
+
+      socket =
+        socket
+        |> start_async(query_id, )
+
+      {:noreply, assign(socket, :saved_queries, saved_queries)}
+    else
+      {:error, reason} ->
+        Logger.error(Error.normalize_error(reason))
+        {:noreply, socket}
+    end
+  end
+
+  defp length_equal_to_one(list) do
+    case length(list) do
+      1 -> :ok
+      _ -> {:error, "List is empty"}
+    end
+  end
+
+  defp file_upload(socket) do
+    file_upload =
+      consume_uploaded_entries(socket, :resume, fn %{path: path}, _entry ->
+        case Pdf.extract_text(path) do
+          {:ok, text} -> {:ok, text}
+          {:error, reason} -> {:ok, {:error, reason}}
+        end
+      end)
+
+    case file_upload do
+      [{:error, reason}] ->
+        Logger.error(reason)
+
+        {:error, reason}
+
+      [text] ->
+        {:ok, text}
+
+      [] ->
+        {:error, "No text"}
+    end
+  end
+
+  # socket = assign(socket, form: to_form(changeset))
+  #
+  # file_upload =
+  #   consume_uploaded_entries(socket, :resume, fn %{path: path}, _entry ->
+  #     case Pdf.extract_text(path) do
+  #       {:ok, text} -> {:ok, text}
+  #       {:error, reason} -> {:ok, {:error, reason}}
+  #     end
+  #   end)
+  #
+  # socket =
+  #   case file_upload do
+  #     [{:error, reason}] ->
+  #       Logger.error(reason)
+  #
+  #       socket
+  #       |> put_flash(:error, "Failed to read pdf")
+  #
+  #     [_text] ->
+  #       socket
+  #
+  #     [] ->
+  #       socket
+  #       |> put_flash(:error, "PDF missing")
+  #   end
+  #
+  # user_id = socket.assigns.current_scope.user.id
+  #
+  # {:ok, query_id} = JobHuntingEx.Queries.save_user_query(query_params, user_id)
+  #
+  # Logger.info(query_id)
+  #
+  # {:noreply, assign(socket, query: query_id)}
+  # end
 end
