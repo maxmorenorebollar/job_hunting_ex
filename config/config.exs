@@ -76,7 +76,7 @@ config :phoenix, :json_library, Jason
 # Configure Oban
 config :job_hunting_ex, Oban,
   engine: Oban.Engines.Basic,
-  queues: [default: 10],
+  queues: [default: 10, scheduled: 5],
   repo: JobHuntingEx.Repo
 
 # Import environment specific config. This must remain at the bottom

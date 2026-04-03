@@ -6,6 +6,7 @@ defmodule JobHuntingEx.Queries.Data do
   require Logger
 
   alias JobHuntingEx.Queries.Data
+  alias JobHuntingEx.Queries.UserQuery
   alias JobHuntingEx.Resumes.Resumes
   alias JobHuntingEx.Cache
   alias JobHuntingEx.Embeddings
@@ -81,7 +82,12 @@ defmodule JobHuntingEx.Queries.Data do
       end
 
     {_extra_keys, needed_keys} =
-      Map.split(params, ["minimum_years_of_experience", "maximum_years_of_experience", "remote?"])
+      Map.split(params, [
+        "minimum_years_of_experience",
+        "maximum_years_of_experience",
+        "remote?",
+        "resume_text"
+      ])
 
     Map.merge(static_params, needed_keys)
   end
@@ -113,9 +119,9 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   def process(params) do
-    {min_yoe, _remainder} = Integer.parse(params["minimum_years_of_experience"])
-    {max_yoe, _remainder} = Integer.parse(params["maximum_years_of_experience"])
-    resume_text = params["resume_text"]
+    IO.inspect(params)
+    {min_yoe, _} = Integer.parse(params["minimum_years_of_experience"])
+    {max_yoe, _} = Integer.parse(params["maximum_years_of_experience"])
     mcp_params = normalize_query_params(params)
     pretty_query_id = Nanoid.generate(@id_size)
 
@@ -127,6 +133,59 @@ defmodule JobHuntingEx.Queries.Data do
       |> Map.put("remote?", params["remote?"])
 
     {:ok, user_query} = JobHuntingEx.Queries.create_user_query(query_params)
+
+    execute_search(user_query, params)
+  end
+
+  @doc """
+  Re-runs the search pipeline for an existing saved user_queries row (same id and
+  pretty_query_id). Replaces query_results for that row.
+  """
+  def process_for_user_query(user_query_id, user_id) do
+    case JobHuntingEx.Queries.get_user_query_for_user(user_query_id, user_id) do
+      nil ->
+        {:error, :not_found}
+
+      %UserQuery{} = user_query ->
+        params = user_query_to_search_params(user_query)
+
+        case params do
+          %{
+            "keyword" => keyword,
+            "minimum_years_of_experience" => min,
+            "maximum_years_of_experience" => max,
+            "radius" => radius
+          }
+          when keyword == "" or min == "" or max == "" or radius == "" ->
+            Logger.error("Saved query is malformed")
+            {:error, "Query is malformed"}
+
+          _ ->
+            execute_search(user_query, params)
+        end
+    end
+  end
+
+  defp user_query_to_search_params(%UserQuery{} = uq) do
+    %{
+      "keyword" => uq.keyword,
+      "location" => uq.location,
+      "radius" => to_string(uq.radius),
+      "minimum_years_of_experience" => to_string(uq.minimum_years_of_experience),
+      "maximum_years_of_experience" => to_string(uq.maximum_years_of_experience),
+      "remote?" => uq.remote?,
+      "resume_text" => uq.resume_text
+    }
+  end
+
+  defp execute_search(%UserQuery{} = user_query, params) do
+    IO.inspect(user_query)
+    IO.inspect(params)
+    {min_yoe, _remainder} = Integer.parse(params["minimum_years_of_experience"])
+    {max_yoe, _remainder} = Integer.parse(params["maximum_years_of_experience"])
+    resume_text = params["resume_text"]
+    mcp_params = normalize_query_params(params)
+    pretty_query_id = user_query.pretty_query_id
 
     listing_urls =
       with {processed, need_to_process} when is_list(processed) <- get_jobs(mcp_params) do
@@ -216,7 +275,7 @@ defmodule JobHuntingEx.Queries.Data do
               %{query_id: user_query.id, listing_id: listing.id, sequence: index}
             end)
 
-          case JobHuntingEx.Queries.create_query_results(query_results) do
+          case JobHuntingEx.Queries.replace_query_results(user_query.id, query_results) do
             {:ok, _results} -> {:ok, pretty_query_id}
             {:error, reason} -> {:error, reason}
           end

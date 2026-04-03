@@ -7,6 +7,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
   alias JobHuntingEx.Queries.UserQuery
   alias JobHuntingEx.Pdf
   alias JobHuntingEx.Error
+  alias JobHuntingEx.Workers.ScheduledWorker
 
   @fake_queries [
     %{
@@ -260,9 +261,6 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
   @impl true
   def handle_event("save", %{"user_query" => query_params}, socket) do
-    # TODO: make the query params backed by an embedded schema and seperate it from the table backed version
-    # That way we can validate the the form without adding the extra information needed to write to the
-    # user_query table
     user_query = query_params
 
     user_query =
@@ -275,11 +273,14 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
     with :ok <- length_equal_to_one(socket.assigns.uploads.resume.entries),
          {:ok, resume_text} <- file_upload(socket),
-         {:ok, schema} <-
+         {:ok, user_query_id} <-
            JobHuntingEx.Queries.save_user_query(user_query, user_id, resume_text) do
-      IO.puts("Query Saved!")
+      _ =
+        %{user_query_id: user_query_id, user_id: user_id}
+        |> ScheduledWorker.new()
+        |> Oban.insert()
+
       saved_queries = [query_params] ++ socket.assigns.saved_queries
-      query_id = schema.id
 
       {:noreply, assign(socket, :saved_queries, saved_queries)}
     else

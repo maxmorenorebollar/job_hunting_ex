@@ -12,6 +12,7 @@ defmodule JobHuntingEx.Application do
     children = [
       JobHuntingExWeb.Telemetry,
       JobHuntingEx.Repo,
+      {Oban, Application.fetch_env!(:job_hunting_ex, Oban)},
       {DNSCluster, query: Application.get_env(:job_hunting_ex, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: JobHuntingEx.PubSub},
       # Start a worker by calling: JobHuntingEx.Worker.start_link(arg)

@@ -6,6 +6,7 @@ defmodule JobHuntingEx.Queries do
   import Pgvector.Ecto.Query
 
   alias JobHuntingEx.Repo
+  alias JobHuntingEx.Queries.{QueryResult, UserQuery}
 
   @pretty_id_size 8
 
@@ -47,6 +48,35 @@ defmodule JobHuntingEx.Queries do
 
       {:ok, results}
     end)
+  end
+
+  def delete_query_results_for_query(query_id) do
+    from(q in QueryResult, where: q.query_id == ^query_id)
+    |> Repo.delete_all()
+  end
+
+  def replace_query_results(query_id, query_results) do
+    Repo.transact(fn ->
+      _ = delete_query_results_for_query(query_id)
+
+      results =
+        Enum.reduce(query_results, [], fn params, acc ->
+          case create_query_result(params) do
+            {:ok, result} -> [result | acc]
+            {:error, _reason} -> Repo.rollback(:transaction_failed)
+          end
+        end)
+
+      {:ok, results}
+    end)
+  end
+
+  def get_user_query_from_user_id(id, user_id) do
+    query =
+      from q in UserQuery,
+        where: q.id == ^id and q.user_id == ^user_id
+
+    Repo.one(query)
   end
 
   def get_listings_from(days_ago) do
@@ -98,13 +128,24 @@ defmodule JobHuntingEx.Queries do
       |> Map.put("user_id", user_id)
       |> Map.put("resume_text", resume_text)
 
-    record =
-      %JobHuntingEx.Queries.UserQuery{}
-      |> JobHuntingEx.Queries.UserQuery.changeset(params)
-      |> Repo.insert()
+    changeset =
+      %UserQuery{}
+      |> UserQuery.changeset(params)
 
-    case record do
-      {:ok, schema} -> {:ok, schema.id}
+    case Repo.insert(changeset,
+           on_conflict: {:replace, [:resume_text, :updated_at]},
+           conflict_target: [
+             :user_id,
+             :keyword,
+             :location,
+             :radius,
+             :minimum_years_of_experience,
+             :maximum_years_of_experience,
+             :remote?
+           ],
+           returning: true
+         ) do
+      {:ok, %UserQuery{id: id}} -> {:ok, id}
       {:error, _changeset} -> {:error, "insertion failed"}
     end
   end
