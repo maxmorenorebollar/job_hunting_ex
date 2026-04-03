@@ -71,6 +71,12 @@ defmodule JobHuntingEx.Queries do
     Repo.all(query)
   end
 
+  def create_user_query(%{"user_id" => _user_id} = params) do
+    %JobHuntingEx.Queries.UserQuery{}
+    |> JobHuntingEx.Queries.UserQuery.user_query_changeset(params)
+    |> Repo.insert()
+  end
+
   def create_user_query(params) do
     %JobHuntingEx.Queries.UserQuery{}
     |> JobHuntingEx.Queries.UserQuery.changeset(params)

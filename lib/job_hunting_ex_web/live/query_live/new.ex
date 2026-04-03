@@ -228,10 +228,12 @@ defmodule JobHuntingExWeb.QueryLive.New do
           |> put_flash(:error, "Failed to read pdf")
 
         [text] ->
+          query_params = Map.put(query_params, "resume_text", text)
+
           socket
           |> assign(:view, :show)
           |> assign(:job_id, AsyncResult.loading())
-          |> start_async(:query, fn -> Data.process(query_params, text) end)
+          |> start_async(:query, fn -> Data.process(query_params) end)
 
         _ ->
           socket

@@ -281,10 +281,6 @@ defmodule JobHuntingExWeb.UserLive.Show do
       saved_queries = [query_params] ++ socket.assigns.saved_queries
       query_id = schema.id
 
-      socket =
-        socket
-        |> start_async(query_id, )
-
       {:noreply, assign(socket, :saved_queries, saved_queries)}
     else
       {:error, reason} ->

@@ -16,7 +16,7 @@ defmodule JobHuntingEx.Workers.ScheduledWorker do
     |> new(schedule_in: @one_day)
     |> Oban.insert!()
 
-    case JobHuntingEx.Data.process(query_params, resume_text, user_id) do
+    case JobHuntingEx.Data.process(query_params) do
       {:ok, _query_id} -> :ok
       {:error, reason} -> {:error, reason}
     end

@@ -112,10 +112,10 @@ defmodule JobHuntingEx.Queries.Data do
     {:error, "Query is malformed"}
   end
 
-  def process(params, resume_text) do
+  def process(params) do
     {min_yoe, _remainder} = Integer.parse(params["minimum_years_of_experience"])
     {max_yoe, _remainder} = Integer.parse(params["maximum_years_of_experience"])
-
+    resume_text = params["resume_text"]
     mcp_params = normalize_query_params(params)
     pretty_query_id = Nanoid.generate(@id_size)
 

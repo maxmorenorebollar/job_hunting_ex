@@ -17,6 +17,30 @@ defmodule JobHuntingEx.Queries.UserQuery do
     timestamps(type: :utc_datetime)
   end
 
+  def changeset(query, params \\ %{}) do
+    query
+    |> Changeset.cast(params, [
+      :keyword,
+      :location,
+      :radius,
+      :workplace_types,
+      :minimum_years_of_experience,
+      :maximum_years_of_experience,
+      :remote?,
+      :pretty_query_id
+    ])
+    |> Changeset.validate_required([
+      :keyword,
+      :location,
+      :radius,
+      :workplace_types,
+      :minimum_years_of_experience,
+      :maximum_years_of_experience,
+      :remote?,
+      :pretty_query_id
+    ])
+  end
+
   def user_query_changeset(query, params \\ %{}) do
     query
     |> Changeset.cast(params, [
@@ -42,30 +66,6 @@ defmodule JobHuntingEx.Queries.UserQuery do
       :pretty_query_id,
       :user_id,
       :resume_text
-    ])
-  end
-
-  def search_query_changeset(query, params \\ %{}) do
-    query
-    |> Changeset.cast(params, [
-      :keyword,
-      :location,
-      :radius,
-      :workplace_types,
-      :minimum_years_of_experience,
-      :maximum_years_of_experience,
-      :remote?,
-      :pretty_query_id
-    ])
-    |> Changeset.validate_required([
-      :keyword,
-      :location,
-      :radius,
-      :workplace_types,
-      :minimum_years_of_experience,
-      :maximum_years_of_experience,
-      :remote?,
-      :pretty_query_id
     ])
   end
 end
