@@ -82,7 +82,7 @@ defmodule JobHuntingEx.Embeddings do
       {:ok, all_embeddings}
     else
       {:ok, %Req.Response{status: status_code}} ->
-        {:error, "Request failed with status code #{status_code}"}
+        {:error, "Openrouter request failed with status code #{status_code}"}
 
       {:error, err} ->
         {:error, Error.normalize_error(err)}

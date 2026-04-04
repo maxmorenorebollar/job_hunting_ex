@@ -62,7 +62,7 @@ defmodule JobHuntingEx.LlmApi do
       {:ok, Ecto.Changeset.apply_changes(valid_changeset)}
     else
       {:ok, %Req.Response{status: status_code}} ->
-        {:error, "Request failed with status code #{status_code}"}
+        {:error, "Groq request failed with status code #{status_code}"}
 
       %Ecto.Changeset{valid?: false} = invalid_changeset ->
         {:error, Error.normalize_error(invalid_changeset)}
