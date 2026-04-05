@@ -26,7 +26,7 @@ defmodule JobHuntingEx.LlmApiTest do
     end)
 
     assert JobHuntingEx.LlmApi.fetch_job_data("") ==
-             {:error, "Request failed with status code 400"}
+             {:error, "Groq request failed with status code 400"}
   end
 
   test "invalid json from groq response" do
