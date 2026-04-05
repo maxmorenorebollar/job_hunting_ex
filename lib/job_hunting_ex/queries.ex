@@ -7,6 +7,7 @@ defmodule JobHuntingEx.Queries do
 
   alias JobHuntingEx.Repo
   alias JobHuntingEx.Queries.{QueryResult, UserQuery}
+  alias JobHuntingEx.Error
 
   @pretty_id_size 8
 
@@ -128,25 +129,23 @@ defmodule JobHuntingEx.Queries do
       |> Map.put("user_id", user_id)
       |> Map.put("resume_text", resume_text)
 
+    # TODO: Fix the error handling for better log messages
     changeset =
       %UserQuery{}
-      |> UserQuery.changeset(params)
+      |> UserQuery.user_query_changeset(params)
+      |> Ecto.Changeset.unique_constraint(:user_id, name: :user_queries_user_saved_search_unique)
 
-    case Repo.insert(changeset,
-           on_conflict: {:replace, [:resume_text, :updated_at]},
-           conflict_target: [
-             :user_id,
-             :keyword,
-             :location,
-             :radius,
-             :minimum_years_of_experience,
-             :maximum_years_of_experience,
-             :remote?
-           ],
-           returning: true
-         ) do
+    case Repo.insert(changeset) do
       {:ok, %UserQuery{id: id}} -> {:ok, id}
-      {:error, _changeset} -> {:error, "insertion failed"}
+      {:error, changeset} -> {:error, Error.normalize_error(changeset)}
     end
+  end
+
+  def get_user_queries_from_id(user_id) do
+    query =
+      from i in JobHuntingEx.Queries.UserQuery,
+        where: i.user_id == ^user_id
+
+    Repo.all(query)
   end
 end

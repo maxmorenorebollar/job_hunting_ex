@@ -4,6 +4,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
   require Logger
 
+  alias Phoenix.LiveView.AsyncResult
   alias JobHuntingEx.Queries.UserQuery
   alias JobHuntingEx.Pdf
   alias JobHuntingEx.Error
@@ -11,6 +12,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
   @fake_queries [
     %{
+      "id" => "100",
       "keyword" => "Elixir Developer",
       "location" => "San Jose, CA",
       "radius" => 25,
@@ -21,6 +23,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
       "last_run" => "Mar 24, 2026"
     },
     %{
+      "id" => "101",
       "keyword" => "Software Engineer",
       "location" => "San Francisco, CA",
       "radius" => 10,
@@ -31,6 +34,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
       "last_run" => "Mar 24, 2026"
     },
     %{
+      "id" => "102",
       "keyword" => "Backend Engineer",
       "location" => "Remote",
       "radius" => nil,
@@ -44,10 +48,14 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
   @impl true
   def mount(_params, _sessions, socket) do
+    user_id = socket.assigns.current_scope.user.id
+    queries = JobHuntingEx.Queries.get_user_queries_from_id(user_id)
+
     socket =
       socket
       |> assign(:form, to_form(UserQuery.changeset(%UserQuery{})))
-      |> assign(:saved_queries, @fake_queries)
+      |> assign(:saved_queries, queries)
+      |> assign(:async_queries, %{})
       |> allow_upload(:resume,
         accept: ~w(.pdf),
         max_entries: 1,
@@ -66,7 +74,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
         <div>
           <h1 class="text-xl font-semibold">Saved Queries</h1>
           <p class="mt-1 text-sm text-gray-600">
-            Queries saved here will be run daily and the top 20 jobs across all queries will be emailed to you every morning!
+            Queries saved here will be run daily and you can come back here to check the results!
           </p>
         </div>
 
@@ -124,29 +132,32 @@ defmodule JobHuntingExWeb.UserLive.Show do
               label="Include remote jobs"
             />
           </div>
-          <label class={[
-            "inline-flex items-center justify-center w-full px-4 py-2.5 rounded-lg transition-colors duration-150 border",
-            if(resume_uploading?(@uploads.resume),
-              do: "text-zinc-400 border-gray-200 cursor-wait",
-              else: "text-zinc-500 border-gray-300 cursor-pointer"
-            )
-          ]}>
-            <%= cond do %>
-              <% resume_uploading?(@uploads.resume) -> %>
-                <div class="w-4 h-4 mr-2 rounded-full border-2 border-gray-200 border-t-gray-600 animate-spin" />
-                Uploading...
-              <% not Enum.empty?(@uploads.resume.entries) -> %>
-                <.icon name="hero-document-check" class="w-5 h-5 mr-2 text-emerald-500" />
-                {hd(@uploads.resume.entries).client_name}
-              <% true -> %>
-                <.icon name="hero-document-arrow-up" class="w-5 h-5 mr-2" /> Upload Resume (PDF)
-            <% end %>
-            <.live_file_input upload={@uploads.resume} class="hidden" />
-          </label>
-          <div class="col-span-2">
+          <div class="col-span-2 flex items-end">
+            <label class={[
+              "flex h-10 w-full min-w-0 flex-nowrap items-center justify-center gap-2 overflow-hidden px-4 text-sm font-medium leading-none rounded-lg transition-colors duration-150 border",
+              if(resume_uploading?(@uploads.resume),
+                do: "text-zinc-400 border-gray-200 cursor-wait",
+                else: "text-zinc-500 border-gray-300 cursor-pointer"
+              )
+            ]}>
+              <%= cond do %>
+                <% resume_uploading?(@uploads.resume) -> %>
+                  <div class="size-4 shrink-0 rounded-full border-2 border-gray-200 border-t-gray-600 animate-spin" />
+                  <span class="shrink-0 whitespace-nowrap">Uploading...</span>
+                <% not Enum.empty?(@uploads.resume.entries) -> %>
+                  <.icon name="hero-document-check" class="size-5 shrink-0 text-emerald-500" />
+                  <span class="shrink-0 whitespace-nowrap">Resume</span>
+                <% true -> %>
+                  <.icon name="hero-document-arrow-up" class="size-5 shrink-0" />
+                  <span class="shrink-0 whitespace-nowrap">Upload Resume (PDF)</span>
+              <% end %>
+              <.live_file_input upload={@uploads.resume} class="hidden" />
+            </label>
+          </div>
+          <div class="col-span-2 flex items-end">
             <.button
               variant="primary"
-              class="text-sm"
+              class="w-full text-sm"
               phx-disable-with="Saving..."
             >
               Save Query
@@ -158,7 +169,10 @@ defmodule JobHuntingExWeb.UserLive.Show do
           <h2 class="text-lg font-semibold">Your Queries</h2>
           <div class="grid gap-4 grid-cols-1">
             <%= for query <- @saved_queries do %>
-              <.card query={query} />
+              <.card
+                query={query}
+                async_status={Map.get(assigns.async_queries, query["id"], AsyncResult.ok(:ready))}
+              />
             <% end %>
           </div>
         </div>
@@ -171,37 +185,58 @@ defmodule JobHuntingExWeb.UserLive.Show do
     ~H"""
     <div class="flex flex-col justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
       <div>
-        <div class="flex items-start justify-between">
-          <h3 class="text-base font-semibold text-gray-900">{@query["keyword"]}</h3>
-          <button class="text-gray-400 hover:text-red-500 cursor-pointer" title="Delete query">
-            <.icon name="hero-x-mark" class="h-4 w-4" />
-          </button>
-        </div>
-        <p class="mt-1 text-sm text-gray-600">
-          {@query["location"]}
-          <span :if={@query["radius"]}> &middot;{to_string(@query["radius"])} mi</span>
-        </p>
-        <div class="mt-2 flex flex-wrap gap-1.5">
-          <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-            {@query["minimum_years_of_experience"]}-{@query["maximum_years_of_experience"]} yrs exp
-          </span>
-          <span
-            :if={@query["remote?"]}
-            class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700"
-          >
-            Remote
-          </span>
-        </div>
+        <.async_result :let={_async_state} assign={@async_status}>
+          <:loading>
+            <div class="relative">
+              <div class="invisible pointer-events-none select-none" aria-hidden="true">
+                <.card_query_body query={@query} />
+              </div>
+              <div class="absolute inset-0 flex items-center justify-center bg-white/90">
+                <div class="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-gray-900" />
+              </div>
+            </div>
+          </:loading>
+          <:failed>
+            <p>Failure</p>
+          </:failed>
+          <.card_query_body query={@query} />
+        </.async_result>
       </div>
-      <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-        <div class="text-xs text-gray-500">
-          <span>{@query["result_count"]} results</span>
-          <span> &middot;{@query["last_run"]}</span>
-        </div>
-        <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
-          View Results
-        </.button>
+    </div>
+    """
+  end
+
+  defp card_query_body(assigns) do
+    ~H"""
+    <div class="flex items-start justify-between">
+      <h3 class="text-base font-semibold text-gray-900">{@query["keyword"]}</h3>
+      <button class="text-gray-400 hover:text-red-500 cursor-pointer" title="Delete query">
+        <.icon name="hero-x-mark" class="h-4 w-4" />
+      </button>
+    </div>
+    <p class="mt-1 text-sm text-gray-600">
+      {@query["location"]}
+      <span :if={@query["radius"]}> &middot;{to_string(@query["radius"])} mi</span>
+    </p>
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+        {@query["minimum_years_of_experience"]}-{@query["maximum_years_of_experience"]} yrs exp
+      </span>
+      <span
+        :if={@query["remote?"]}
+        class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700"
+      >
+        Including Remote
+      </span>
+    </div>
+    <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
+      <div class="text-xs text-gray-500">
+        <span>{@query["result_count"]} results</span>
+        <span> &middot;{@query["last_run"]}</span>
       </div>
+      <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
+        View Results
+      </.button>
     </div>
     """
   end
@@ -265,8 +300,8 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
     user_query =
       case user_query["remote?"] do
-        true -> Map.put(user_query, "workplace_types", ["Hybrid", "On-Site", "Remote"])
-        false -> Map.put(user_query, "workplace_types", ["Hybrid", "On-Site"])
+        "true" -> Map.put(user_query, "workplace_types", ["Hybrid", "On-Site", "Remote"])
+        "false" -> Map.put(user_query, "workplace_types", ["Hybrid", "On-Site"])
       end
 
     user_id = socket.assigns.current_scope.user.id
@@ -275,14 +310,21 @@ defmodule JobHuntingExWeb.UserLive.Show do
          {:ok, resume_text} <- file_upload(socket),
          {:ok, user_query_id} <-
            JobHuntingEx.Queries.save_user_query(user_query, user_id, resume_text) do
-      _ =
-        %{user_query_id: user_query_id, user_id: user_id}
-        |> ScheduledWorker.new()
-        |> Oban.insert()
-
+      params = %{args: %{"user_query_id" => user_query_id, "user_id" => user_id}, attempt: 1}
+      query_params = Map.put(query_params, "id", user_query_id)
       saved_queries = [query_params] ++ socket.assigns.saved_queries
+      IO.inspect(socket.assigns.async_queries)
 
-      {:noreply, assign(socket, :saved_queries, saved_queries)}
+      socket =
+        socket
+        |> assign(:saved_queries, saved_queries)
+        |> assign(
+          :async_queries,
+          Map.put(socket.assigns.async_queries, user_query_id, AsyncResult.loading())
+        )
+        |> start_async({:save, user_query_id}, fn -> ScheduledWorker.perform(params) end)
+
+      {:noreply, socket}
     else
       {:error, reason} ->
         Logger.error(Error.normalize_error(reason))
@@ -293,7 +335,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
   defp length_equal_to_one(list) do
     case length(list) do
       1 -> :ok
-      _ -> {:error, "List is empty"}
+      _ -> {:error, "User Query resume uploads list is empty"}
     end
   end
 
@@ -320,38 +362,33 @@ defmodule JobHuntingExWeb.UserLive.Show do
     end
   end
 
-  # socket = assign(socket, form: to_form(changeset))
-  #
-  # file_upload =
-  #   consume_uploaded_entries(socket, :resume, fn %{path: path}, _entry ->
-  #     case Pdf.extract_text(path) do
-  #       {:ok, text} -> {:ok, text}
-  #       {:error, reason} -> {:ok, {:error, reason}}
-  #     end
-  #   end)
-  #
-  # socket =
-  #   case file_upload do
-  #     [{:error, reason}] ->
-  #       Logger.error(reason)
-  #
-  #       socket
-  #       |> put_flash(:error, "Failed to read pdf")
-  #
-  #     [_text] ->
-  #       socket
-  #
-  #     [] ->
-  #       socket
-  #       |> put_flash(:error, "PDF missing")
-  #   end
-  #
-  # user_id = socket.assigns.current_scope.user.id
-  #
-  # {:ok, query_id} = JobHuntingEx.Queries.save_user_query(query_params, user_id)
-  #
-  # Logger.info(query_id)
-  #
-  # {:noreply, assign(socket, query: query_id)}
-  # end
+  @impl true
+  def handle_async({:save, user_query_id}, {:ok, :ok}, socket) do
+    async_queries =
+      socket.assigns.async_queries
+      |> Map.put(user_query_id, AsyncResult.ok(:ready))
+
+    socket =
+      socket
+      |> assign(:async_queries, async_queries)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_async({:save, user_query_id}, {:exit, reason}, socket) do
+    Logger.error(inspect(reason))
+
+    result = Map.get(socket.assigns.async_queries, user_query_id)
+
+    async_queries =
+      socket.assigns.async_queries
+      |> Map.put(user_query_id, AsyncResult.failed(result, reason))
+
+    socket =
+      socket
+      |> assign(:async_queries, async_queries)
+
+    {:noreply, socket}
+  end
 end

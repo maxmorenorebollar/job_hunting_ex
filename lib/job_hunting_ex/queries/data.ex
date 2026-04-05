@@ -119,7 +119,6 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   def process(params) do
-    IO.inspect(params)
     {min_yoe, _} = Integer.parse(params["minimum_years_of_experience"])
     {max_yoe, _} = Integer.parse(params["maximum_years_of_experience"])
     mcp_params = normalize_query_params(params)
@@ -142,7 +141,7 @@ defmodule JobHuntingEx.Queries.Data do
   pretty_query_id). Replaces query_results for that row.
   """
   def process_for_user_query(user_query_id, user_id) do
-    case JobHuntingEx.Queries.get_user_query_for_user(user_query_id, user_id) do
+    case JobHuntingEx.Queries.get_user_query_from_user_id(user_query_id, user_id) do
       nil ->
         {:error, :not_found}
 
@@ -179,8 +178,6 @@ defmodule JobHuntingEx.Queries.Data do
   end
 
   defp execute_search(%UserQuery{} = user_query, params) do
-    IO.inspect(user_query)
-    IO.inspect(params)
     {min_yoe, _remainder} = Integer.parse(params["minimum_years_of_experience"])
     {max_yoe, _remainder} = Integer.parse(params["maximum_years_of_experience"])
     resume_text = params["resume_text"]
