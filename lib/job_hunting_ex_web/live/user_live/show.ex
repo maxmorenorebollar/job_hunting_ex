@@ -174,7 +174,12 @@ defmodule JobHuntingExWeb.UserLive.Show do
     ~H"""
     <div class="flex items-start justify-between">
       <h3 class="text-base font-semibold text-gray-900">{@query.keyword}</h3>
-      <button class="text-gray-400 hover:text-red-500 cursor-pointer" title="Delete query">
+      <button
+        phx-click="delete_query"
+        phx-value-query_id={@query.id}
+        class="text-gray-400 hover:text-red-500 cursor-pointer"
+        title="Delete query"
+      >
         <.icon name="hero-x-mark" class="h-4 w-4" />
       </button>
     </div>
@@ -198,7 +203,11 @@ defmodule JobHuntingExWeb.UserLive.Show do
       <%!--   <span>{@query.result_count} results</span> --%>
       <%!--   <span> &middot;{@query["last_run"]}</span> --%>
       <%!-- </div> --%>
-      <.button variant="primary" class="text-sm" navigate={~p"/query/#{@query.pretty_query_id}"}>
+      <.button
+        variant="primary"
+        class="text-sm"
+        navigate={~p"/query/#{@query.pretty_query_id}"}
+      >
         View Results
       </.button>
     </div>
@@ -253,6 +262,28 @@ defmodule JobHuntingExWeb.UserLive.Show do
         put_flash(socket, :error, Enum.join(Enum.uniq(all_errors), ". "))
       else
         socket
+      end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("delete_query", %{"query_id" => to_delete_id}, socket) do
+    saved_queries = socket.assigns.saved_queries
+    to_delete_id = String.to_integer(to_delete_id)
+    to_delete_schema = saved_queries |> Enum.find(fn query -> query.id == to_delete_id end)
+
+    socket =
+      case JobHuntingEx.Queries.delete_user_query(to_delete_schema) do
+        {:ok, _schema} ->
+          saved_queries =
+            saved_queries |> Enum.filter(fn query -> query.id != to_delete_id end)
+
+          assign(socket, :saved_queries, saved_queries)
+
+        {:error, reason} ->
+          Logger.error(reason)
+          socket
       end
 
     {:noreply, socket}

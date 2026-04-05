@@ -149,4 +149,12 @@ defmodule JobHuntingEx.Queries do
 
     Repo.all(query)
   end
+
+  @spec delete_user_query(Ecto.Schema.t()) :: {:ok, Ecto.Schema.t()} | {:error, String.t()}
+  def delete_user_query(schema) do
+    case Repo.delete(schema) do
+      {:ok, schema} -> {:ok, schema}
+      {:error, changeset} -> {:error, Error.normalize_error(changeset)}
+    end
+  end
 end
