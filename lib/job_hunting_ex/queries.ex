@@ -130,13 +130,14 @@ defmodule JobHuntingEx.Queries do
       |> Map.put("resume_text", resume_text)
 
     # TODO: Fix the error handling for better log messages
+    # Currenly logs something like "user_id already used"
     changeset =
       %UserQuery{}
       |> UserQuery.user_query_changeset(params)
       |> Ecto.Changeset.unique_constraint(:user_id, name: :user_queries_user_saved_search_unique)
 
     case Repo.insert(changeset) do
-      {:ok, %UserQuery{id: id}} -> {:ok, id}
+      {:ok, user_query_schema} -> {:ok, user_query_schema}
       {:error, changeset} -> {:error, Error.normalize_error(changeset)}
     end
   end

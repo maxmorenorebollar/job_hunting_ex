@@ -10,42 +10,6 @@ defmodule JobHuntingExWeb.UserLive.Show do
   alias JobHuntingEx.Error
   alias JobHuntingEx.Workers.ScheduledWorker
 
-  @fake_queries [
-    %{
-      "id" => "100",
-      "keyword" => "Elixir Developer",
-      "location" => "San Jose, CA",
-      "radius" => 25,
-      "minimum_years_of_experience" => 2,
-      "maximum_years_of_experience" => 8,
-      "remote?" => true,
-      "result_count" => 14,
-      "last_run" => "Mar 24, 2026"
-    },
-    %{
-      "id" => "101",
-      "keyword" => "Software Engineer",
-      "location" => "San Francisco, CA",
-      "radius" => 10,
-      "minimum_years_of_experience" => 1,
-      "maximum_years_of_experience" => 5,
-      "remote?" => false,
-      "result_count" => 23,
-      "last_run" => "Mar 24, 2026"
-    },
-    %{
-      "id" => "102",
-      "keyword" => "Backend Engineer",
-      "location" => "Remote",
-      "radius" => nil,
-      "minimum_years_of_experience" => 3,
-      "maximum_years_of_experience" => 10,
-      "remote?" => true,
-      "result_count" => 7,
-      "last_run" => "Mar 23, 2026"
-    }
-  ]
-
   @impl true
   def mount(_params, _sessions, socket) do
     user_id = socket.assigns.current_scope.user.id
@@ -171,7 +135,7 @@ defmodule JobHuntingExWeb.UserLive.Show do
             <%= for query <- @saved_queries do %>
               <.card
                 query={query}
-                async_status={Map.get(assigns.async_queries, query["id"], AsyncResult.ok(:ready))}
+                async_status={Map.get(assigns.async_queries, query.id, AsyncResult.ok(:ready))}
               />
             <% end %>
           </div>
@@ -209,32 +173,32 @@ defmodule JobHuntingExWeb.UserLive.Show do
   defp card_query_body(assigns) do
     ~H"""
     <div class="flex items-start justify-between">
-      <h3 class="text-base font-semibold text-gray-900">{@query["keyword"]}</h3>
+      <h3 class="text-base font-semibold text-gray-900">{@query.keyword}</h3>
       <button class="text-gray-400 hover:text-red-500 cursor-pointer" title="Delete query">
         <.icon name="hero-x-mark" class="h-4 w-4" />
       </button>
     </div>
     <p class="mt-1 text-sm text-gray-600">
-      {@query["location"]}
-      <span :if={@query["radius"]}> &middot;{to_string(@query["radius"])} mi</span>
+      {@query.location}
+      <span :if={@query.radius}> &middot;{to_string(@query.radius)} mi</span>
     </p>
     <div class="mt-2 flex flex-wrap gap-1.5">
       <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-        {@query["minimum_years_of_experience"]}-{@query["maximum_years_of_experience"]} yrs exp
+        {@query.minimum_years_of_experience}-{@query.maximum_years_of_experience} yrs exp
       </span>
       <span
-        :if={@query["remote?"]}
+        :if={@query.remote?}
         class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700"
       >
         Including Remote
       </span>
     </div>
     <div class="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-      <div class="text-xs text-gray-500">
-        <span>{@query["result_count"]} results</span>
-        <span> &middot;{@query["last_run"]}</span>
-      </div>
-      <.button variant="primary" class="text-sm" navigate={~p"/query/fake-id"}>
+      <%!-- <div class="text-xs text-gray-500"> --%>
+      <%!--   <span>{@query.result_count} results</span> --%>
+      <%!--   <span> &middot;{@query["last_run"]}</span> --%>
+      <%!-- </div> --%>
+      <.button variant="primary" class="text-sm" navigate={~p"/query/#{@query.pretty_query_id}"}>
         View Results
       </.button>
     </div>
@@ -308,21 +272,23 @@ defmodule JobHuntingExWeb.UserLive.Show do
 
     with :ok <- length_equal_to_one(socket.assigns.uploads.resume.entries),
          {:ok, resume_text} <- file_upload(socket),
-         {:ok, user_query_id} <-
+         {:ok, user_query_schema} <-
            JobHuntingEx.Queries.save_user_query(user_query, user_id, resume_text) do
-      params = %{args: %{"user_query_id" => user_query_id, "user_id" => user_id}, attempt: 1}
-      query_params = Map.put(query_params, "id", user_query_id)
-      saved_queries = [query_params] ++ socket.assigns.saved_queries
-      IO.inspect(socket.assigns.async_queries)
+      params = %{
+        args: %{"user_query_id" => user_query_schema.id, "user_id" => user_id},
+        attempt: 1
+      }
+
+      saved_queries = [user_query_schema] ++ socket.assigns.saved_queries
 
       socket =
         socket
         |> assign(:saved_queries, saved_queries)
         |> assign(
           :async_queries,
-          Map.put(socket.assigns.async_queries, user_query_id, AsyncResult.loading())
+          Map.put(socket.assigns.async_queries, user_query_schema.id, AsyncResult.loading())
         )
-        |> start_async({:save, user_query_id}, fn -> ScheduledWorker.perform(params) end)
+        |> start_async({:save, user_query_schema.id}, fn -> ScheduledWorker.perform(params) end)
 
       {:noreply, socket}
     else
